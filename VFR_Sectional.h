@@ -9,7 +9,6 @@
 
 const char ssid[] = "CHANGE-ME";        // your network SSID (name)
 const char pass[] = "CHANGE-ME";    // your network password (use for WPA, or use as key for WEP)
-boolean ledStatus = true; // used so leds only indicate connection status on first boot, or after failure
 
 #define DATA_PIN    4
 #define LED_TYPE    WS2812B

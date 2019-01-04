@@ -16,6 +16,8 @@ using namespace std;
 
 #define DEBUG false
 
+boolean ledStatus = true; // used so leds only indicate connection status on first boot, or after failure
+
 unsigned int lightningLoops;
 
 int status = WL_IDLE_STATUS;
