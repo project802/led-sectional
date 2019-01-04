@@ -1,5 +1,4 @@
-/* Make sure NUM_AIRPORTS matches actual number of LEDs.  The first Airport / LED in the string is ignored, and the last airport must NOT Have a comma afterward.
-If using the NODEMCU and WS2812B, plug the WS2812B LEDs into the Vin and Ground directly, and the data pin */
+/* If using the NODEMCU and WS2812B, plug the WS2812B LEDs into the Vin and Ground directly, and the data pin */
 
 
 
@@ -10,7 +9,7 @@ using namespace std;
 
 #define FASTLED_ESP8266_RAW_PIN_ORDER
 
-#define NUM_AIRPORTS 17 // This is really the number of LEDs = airports plus one null led
+#define NUM_AIRPORTS 16 // Number of airports
 #define WIND_THRESHOLD 25 // Maximum windspeed for green
 #define LIGHTNING_INTERVAL 5000 // ms - how often should lightning strike; not precise because we sleep in-between
 #define DO_LIGHTNING true // Lightning uses more power, but is cool.
@@ -42,7 +41,6 @@ CRGB leds[NUM_AIRPORTS];
 
 std::vector<unsigned short int> lightningLeds;
 std::vector<String> airports({
-  "NULL", // 0 first LED is ignored
   "KBIE", // 1
   "KAFK", // 2
   "KPMV", // 3
@@ -73,8 +71,15 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
 
   // Initialize LEDs
+  fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
   FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_AIRPORTS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(BRIGHTNESS);
+  
+  // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
+  // data pin during boot and configuration, it can cause the first LED to be "skipped" and left in
+  // the default configuration.
+  FastLED.show();
+  FastLED.show();
 }
 
 void loop() {
@@ -176,7 +181,7 @@ bool getMetars(){
   String currentWxstring = "";
   String airportString = "";
   bool firstAirport = true;
-  for (int i = 1; i < (NUM_AIRPORTS); i++) {
+  for (int i = 0; i < (NUM_AIRPORTS); i++) {
     if (airports[i] != "NULL" && airports[i] != "VFR" && airports[i] != "MVFR" && airports[i] != "WVFR" && airports[i] != "IFR" && airports[i] != "LIFR") {
       if (firstAirport) {
         firstAirport = false;
