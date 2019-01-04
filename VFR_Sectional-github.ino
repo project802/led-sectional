@@ -16,8 +16,6 @@ using namespace std;
 
 #define DEBUG false
 
-boolean ledStatus = true; // used so leds only indicate connection status on first boot, or after failure
-
 unsigned int lightningLoops;
 
 int status = WL_IDLE_STATUS;
@@ -62,7 +60,7 @@ void loop() {
 
   // Connect to WiFi. We always want a wifi connection for the ESP8266
   if (WiFi.status() != WL_CONNECTED) {
-    if (ledStatus) fill_solid(leds, NUM_AIRPORTS, CRGB::Orange); // indicate status with LEDs, but only on first run or error
+    fill_solid(leds, NUM_AIRPORTS, CRGB::Orange); // indicate status with LEDs, but only on first run or error
     FastLED.show();
     WiFi.mode(WIFI_STA);
     WiFi.hostname("LED Sectional " + WiFi.macAddress());
@@ -78,13 +76,11 @@ void loop() {
       Serial.println("Failed. Will retry...");
       fill_solid(leds, NUM_AIRPORTS, CRGB::Orange);
       FastLED.show();
-      ledStatus = true;
       return;
     }
     Serial.println("OK!");
-    if (ledStatus) fill_solid(leds, NUM_AIRPORTS, CRGB::Purple); // indicate status with LEDs
+    fill_solid(leds, NUM_AIRPORTS, CRGB::Purple); // indicate status with LEDs
     FastLED.show();
-    ledStatus = false;
   }
 
   // Do some lightning
@@ -272,7 +268,6 @@ bool getMetars(){
         Serial.println("---Timeout---");
         fill_solid(leds, NUM_AIRPORTS, CRGB::Cyan); // indicate status with LEDs
         FastLED.show();
-        ledStatus = true;
         client.stop();
         return false;
       }
