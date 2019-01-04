@@ -25,6 +25,8 @@ int status = WL_IDLE_STATUS;
 #define RETRY_TIMEOUT 15000 // in ms
 #define REQUEST_INTERVAL 900000 // in ms (15 min is 900000)
 
+std::vector<unsigned short int> lightningLeds;
+
 // Define the array of leds
 CRGB leds[NUM_AIRPORTS];
 

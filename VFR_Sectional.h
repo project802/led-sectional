@@ -16,7 +16,6 @@ boolean ledStatus = true; // used so leds only indicate connection status on fir
 #define COLOR_ORDER GRB
 #define BRIGHTNESS 175
 
-std::vector<unsigned short int> lightningLeds;
 std::vector<String> airports({
   "KBIE", // 1
   "KAFK", // 2
