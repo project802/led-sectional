@@ -11,8 +11,6 @@
 
 using namespace std;
 
-#define DEBUG false
-
 #define FASTLED_ESP8266_RAW_PIN_ORDER
 
 #ifndef AW_SERVER
@@ -140,7 +138,8 @@ void loop() {
 
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
   {
-    if (DEBUG) {
+    if( SECTIONAL_DEBUG )
+    {
       fill_gradient_RGB(leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue); // Just let us know we're running
       FastLED.show();
     }
