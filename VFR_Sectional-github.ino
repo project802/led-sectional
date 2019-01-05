@@ -85,7 +85,12 @@ void loop()
     fill_solid(leds, NUM_AIRPORTS, CRGB::Orange); // indicate status with LEDs, but only on first run or error
     FastLED.show();
     WiFi.mode(WIFI_STA);
-    WiFi.hostname("LED Sectional " + WiFi.macAddress());
+
+    String mac = WiFi.macAddress();
+    int pos;
+    while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
+    WiFi.hostname( "LED-Sectional-" + mac );
+    
     //wifi_set_sleep_type(LIGHT_SLEEP_T); // use light sleep mode for all delays
     Serial.print( "I am " );
     Serial.println( WiFi.macAddress() );
