@@ -65,7 +65,9 @@ void setup()
 
 void loop()
 {
+#ifdef DO_SLEEP
   static bool sleeping = false;
+#endif
   static unsigned long metarLast = 0;
   static unsigned long metarInterval = METAR_REQUEST_INTERVAL;
 #ifdef DO_LIGHTNING
@@ -109,8 +111,8 @@ void loop()
 
   timeClient.update();
 
+#ifdef DO_SLEEP
   // Sleep routine
-  if( DO_SLEEP )
   {
     int hoursNow = timeClient.getHours();
 
@@ -141,6 +143,7 @@ void loop()
     delay( 60 * 1000 );
     return;
   }
+#endif
 
   // Metar routine
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )

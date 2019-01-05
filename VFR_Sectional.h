@@ -8,7 +8,7 @@
 
 #define WIND_THRESHOLD      25      // Wind/gust speed, above which, when VFR will change from green to yellow if DO_WINDS is true.  Set high to disable.
 
-#define DO_SLEEP            true    // Automatically stop polling and turn off LEDs after a certain time?
+#define DO_SLEEP                    // If defined, automatically stop polling and turn off LEDs after a certain time
 #define SLEEP_START_ZULU    3       // The hour (UTC+0) at which the sectional will sleep
 #define SLEEP_END_ZULU      11      // The hour (UTC+0) at which the sectional will wake up
 
@@ -27,7 +27,7 @@ std::vector<String> airports({
   "KPVD", // 4
   "KFMH", // 5
   "KORH", // 6
-  "KPSF" // 7 last airport does NOT have a comma after
+  "KPSF"  // 7 last airport does NOT have a comma after
 });
 
 #endif
