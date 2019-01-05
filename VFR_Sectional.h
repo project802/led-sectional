@@ -3,11 +3,10 @@
 
 #define NUM_AIRPORTS        7       // Number of airports
 
-#define DO_LIGHTNING        true    // If true, flash the airport LED when lightning is in the METAR
+#define DO_LIGHTNING                // If defined, flash the airport LED when lightning is in the METAR
 #define LIGHTNING_INTERVAL  5       // How often the lightning animation will run, in seconds
 
-#define DO_WINDS            true    // Change color based on wind/gust speed?
-#define WIND_THRESHOLD      25      // Wind/gust speed, above which, when VFR will change from green to yellow if DO_WINDS is true
+#define WIND_THRESHOLD      25      // Wind/gust speed, above which, when VFR will change from green to yellow if DO_WINDS is true.  Set high to disable.
 
 #define DO_SLEEP            true    // Automatically stop polling and turn off LEDs after a certain time?
 #define SLEEP_START_ZULU    3       // The hour (UTC+0) at which the sectional will sleep

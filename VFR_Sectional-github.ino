@@ -29,7 +29,9 @@ using namespace std;
   #define METAR_REQUEST_INTERVAL  900000  // in ms (15 min is 900000)
 #endif
 
+#ifdef DO_LIGHTNING
 std::vector<unsigned short int> lightningLeds;
+#endif
 
 // Define the array of leds
 CRGB leds[NUM_AIRPORTS];
@@ -37,21 +39,18 @@ CRGB leds[NUM_AIRPORTS];
 WiFiUDP ntpUDP;
 NTPClient timeClient( ntpUDP );
 
-void setup() {
-  //Initialize serial and wait for port to open:
+void setup()
+{
   Serial.begin(115200);
-  //pinMode(D1, OUTPUT); //Declare Pin mode
-  //while (!Serial) {
-  //    ; // wait for serial port to connect. Needed for native USB
-  //}
 
-  pinMode(LED_BUILTIN, OUTPUT); // give us control of the onboard LED
-  digitalWrite(LED_BUILTIN, LOW);
+  // Init onboard LED
+  pinMode( LED_BUILTIN, OUTPUT );
+  digitalWrite( LED_BUILTIN, LOW );
 
-  // Initialize LEDs
-  fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
-  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_AIRPORTS).setCorrection(TypicalLEDStrip);
-  FastLED.setBrightness(BRIGHTNESS);
+  // Initialize METAR LEDs
+  fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
+  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>( leds, NUM_AIRPORTS ).setCorrection( TypicalLEDStrip );
+  FastLED.setBrightness( BRIGHTNESS );
 
   // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
   // data pin during boot and configuration, it can cause the first LED to be "skipped" and left in
@@ -64,15 +63,21 @@ void setup() {
   timeClient.begin();
 }
 
-void loop() {
+void loop()
+{
   static bool sleeping = false;
   static unsigned long metarLast = 0;
   static unsigned long metarInterval = METAR_REQUEST_INTERVAL;
+#ifdef DO_LIGHTNING
   static unsigned long lightningLast = 0;
+#endif
+
+#ifdef SECTIONAL_DEBUG
+  // Turn on the onboard LED
+  digitalWrite( LED_BUILTIN, LOW );
+#endif
   
-  digitalWrite( LED_BUILTIN, LOW ); // on if we're awake
-  
-  // Connect to WiFi. We always want a wifi connection for the ESP8266
+  // Wi-Fi routine
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println();
     fill_solid(leds, NUM_AIRPORTS, CRGB::Orange); // indicate status with LEDs, but only on first run or error
@@ -103,7 +108,8 @@ void loop() {
   }
 
   timeClient.update();
-  
+
+  // Sleep routine
   if( DO_SLEEP )
   {
     int hoursNow = timeClient.getHours();
@@ -136,6 +142,7 @@ void loop() {
     return;
   }
 
+  // Metar routine
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
   {
 #ifdef SECTIONAL_DEBUG
@@ -145,18 +152,15 @@ void loop() {
 
     Serial.print("Getting METARs at ");
     Serial.println( timeClient.getFormattedTime() );
-    
-    metarLast = millis();
-    
+   
     if( getMetars() )
     {
-      Serial.println("Refreshing LEDs.");
-      FastLED.show();
-      
-      if( DO_LIGHTNING && lightningLeds.size() > 0 )
+#ifdef DO_LIGHTNING
+      if( lightningLeds.size() > 0 )
       {
         lightningLast = 0;
       }
+#endif
       
       Serial.print( "METAR request again in " );
       Serial.println( METAR_REQUEST_INTERVAL);
@@ -165,16 +169,22 @@ void loop() {
     }
     else
     {
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Cyan ); // indicate status with LEDs
+
       Serial.print( "METAR fetch failed.  Retry in " );
       Serial.println( METAR_RETRY_INTERVAL );
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Cyan ); // indicate status with LEDs
-      FastLED.show();
+      
       metarInterval = METAR_RETRY_INTERVAL;
     }
+
+    FastLED.show();
+
+    metarLast = millis();
   }
 
-  // Do some lightning
-  if( DO_LIGHTNING && (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
+#ifdef DO_LIGHTNING
+  // Lightning routine
+  if( (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
   {
     std::vector<CRGB> lightning(lightningLeds.size());
     
@@ -195,13 +205,22 @@ void loop() {
     
     lightningLast = millis() - 10;
   }
-  
+#endif
+
+  // All done.  Turn off onboard LED and yeild.
+#ifdef SECTIONAL_DEBUG
   digitalWrite( LED_BUILTIN, HIGH );
+#endif
+
   delay( 1000 );
 }
 
-bool getMetars(){
+bool getMetars()
+{
+#ifdef DO_LIGHTNING
   lightningLeds.clear(); // clear out existing lightning LEDs since they're global
+#endif
+
   fill_solid(leds, NUM_AIRPORTS, CRGB::Black); // Set everything to black just in case there is no report
   uint32_t t;
   char c;
@@ -294,6 +313,7 @@ bool getMetars(){
             currentAirport += c;
           } else {
             readingAirport = false;
+            led = 99;
             for (unsigned short int i = 0; i < NUM_AIRPORTS; i++) {
               if (airports[i] == currentAirport) {
                 led = i;
@@ -351,7 +371,7 @@ bool getMetars(){
   }
   
   // need to doColor this for the last airport
-  doColor(currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring);
+  doColor( currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring );
   
   // Do the key LEDs now if they exist
   for (int i = 0; i < (NUM_AIRPORTS); i++) {
@@ -367,7 +387,8 @@ bool getMetars(){
   return true;
 }
 
-void doColor(String identifier, unsigned short int led, int wind, int gusts, String condition, String wxstring) {
+void doColor( String identifier, unsigned short int led, int wind, int gusts, String condition, String wxstring )
+{
   CRGB color;
   Serial.print(identifier);
   Serial.print(": ");
@@ -380,20 +401,42 @@ void doColor(String identifier, unsigned short int led, int wind, int gusts, Str
   Serial.print(led);
   Serial.print(" WX: ");
   Serial.println(wxstring);
-  if (wxstring.indexOf("TS") != -1) {
+
+#ifdef DO_LIGHTNING
+  if( wxstring.indexOf("TS") != -1 )
+  {
     Serial.println("... found lightning!");
     lightningLeds.push_back(led);
   }
-  if (condition == "LIFR" || identifier == "LIFR") color = CRGB::Magenta;
-  else if (condition == "IFR") color = CRGB::Red;
-  else if (condition == "MVFR") color = CRGB::Blue;
-  else if (condition == "VFR") {
-    if ((wind > WIND_THRESHOLD || gusts > WIND_THRESHOLD) && DO_WINDS) {
+#endif
+
+  if( condition == "LIFR" )
+  {
+    color = CRGB::Magenta;
+  }
+  else if( condition == "IFR" )
+  {
+    color = CRGB::Red;
+  }
+  else if( condition == "MVFR" )
+  {
+    color = CRGB::Blue;
+  }
+  else if( condition == "VFR" )
+  {
+    if( (wind > WIND_THRESHOLD) || (gusts > WIND_THRESHOLD) )
+    {
       color = CRGB::Yellow;
-    } else {
+    }
+    else
+    {
       color = CRGB::Green;
     }
-  } else color = CRGB::Black;
+  }
+  else
+  {
+    color = CRGB::Black;
+  }
 
   leds[led] = color;
 }
