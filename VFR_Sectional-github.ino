@@ -94,7 +94,7 @@ void loop()
     Serial.print( "..." );
     WiFi.begin(ssid, pass);
     // Wait up to 1 minute for connection...
-    for (unsigned int c = 0; (c < WIFI_TIMEOUT) && (WiFi.status() != WL_CONNECTED); c++) {
+    for (unsigned c = 0; (c < WIFI_TIMEOUT) && (WiFi.status() != WL_CONNECTED); c++) {
       Serial.write('.');
       delay(1000);
     }
@@ -191,8 +191,8 @@ void loop()
   {
     std::vector<CRGB> lightning(lightningLeds.size());
     
-    for (unsigned short int i = 0; i < lightningLeds.size(); ++i) {
-      unsigned short int currentLed = lightningLeds[i];
+    for (unsigned i = 0; i < lightningLeds.size(); ++i) {
+      unsigned currentLed = lightningLeds[i];
       lightning[i] = leds[currentLed]; // temporarily store original color
       leds[currentLed] = CRGB::White; // set to white briefly
     }
@@ -200,8 +200,8 @@ void loop()
     
     delay(25);
     
-    for (unsigned short int i = 0; i < lightningLeds.size(); ++i) {
-      unsigned short int currentLed = lightningLeds[i];
+    for (unsigned i = 0; i < lightningLeds.size(); ++i) {
+      unsigned currentLed = lightningLeds[i];
       leds[currentLed] = lightning[i]; // restore original color
     }
     FastLED.show();
@@ -225,15 +225,16 @@ bool getMetars()
 #endif
 
   fill_solid(leds, NUM_AIRPORTS, CRGB::Black); // Set everything to black just in case there is no report
-  uint32_t t;
+  
+  unsigned long t;
   char c;
-  boolean readingAirport = false;
-  boolean readingCondition = false;
-  boolean readingWind = false;
-  boolean readingGusts = false;
-  boolean readingWxstring = false;
+  bool readingAirport = false;
+  bool readingCondition = false;
+  bool readingWind = false;
+  bool readingGusts = false;
+  bool readingWxstring = false;
 
-  unsigned short int led = 99;
+  unsigned led = 99;
   String currentAirport = "";
   String currentCondition = "";
   String currentLine = "";
@@ -242,7 +243,7 @@ bool getMetars()
   String currentWxstring = "";
   String airportString = "";
   bool firstAirport = true;
-  for (int i = 0; i < (NUM_AIRPORTS); i++) {
+  for (unsigned i = 0; i < (NUM_AIRPORTS); i++) {
     if (airports[i] != "NULL" && airports[i] != "VFR" && airports[i] != "MVFR" && airports[i] != "WVFR" && airports[i] != "IFR" && airports[i] != "LIFR") {
       if (firstAirport) {
         firstAirport = false;
@@ -317,7 +318,7 @@ bool getMetars()
           } else {
             readingAirport = false;
             led = 99;
-            for (unsigned short int i = 0; i < NUM_AIRPORTS; i++) {
+            for (unsigned i = 0; i < NUM_AIRPORTS; i++) {
               if (airports[i] == currentAirport) {
                 led = i;
               }
@@ -377,7 +378,7 @@ bool getMetars()
   doColor( currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring );
   
   // Do the key LEDs now if they exist
-  for (int i = 0; i < (NUM_AIRPORTS); i++) {
+  for (unsigned i = 0; i < (NUM_AIRPORTS); i++) {
     // Use this opportunity to set colors for LEDs in our key then build the request string
     if (airports[i] == "VFR") leds[i] = CRGB::Green;
     else if (airports[i] == "WVFR") leds[i] = CRGB::Yellow;
