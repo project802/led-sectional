@@ -138,11 +138,10 @@ void loop() {
 
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
   {
-    if( SECTIONAL_DEBUG )
-    {
-      fill_gradient_RGB(leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue); // Just let us know we're running
-      FastLED.show();
-    }
+#ifdef SECTIONAL_DEBUG
+    fill_gradient_RGB(leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue); // Just let us know we're running
+    FastLED.show();
+#endif
 
     Serial.print("Getting METARs at ");
     Serial.println( timeClient.getFormattedTime() );

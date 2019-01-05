@@ -35,6 +35,6 @@ std::vector<String> airports({
 #define BASE_URI "/hosted/led_sectional_test_data?stationString="
 #define METAR_REQUEST_INTERVAL  (30*1000)
 
-#define SECTIONAL_DEBUG true
+#define SECTIONAL_DEBUG
 
 #endif
