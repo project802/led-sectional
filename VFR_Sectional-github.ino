@@ -43,9 +43,9 @@ void setup()
 {
   Serial.begin(115200);
 
-  // Init onboard LED
+  // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
-  digitalWrite( LED_BUILTIN, LOW );
+  digitalWrite( LED_BUILTIN, HIGH );
 
   // Initialize METAR LEDs
   fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
