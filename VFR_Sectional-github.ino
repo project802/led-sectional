@@ -5,30 +5,39 @@
 #include <ESP8266WiFi.h>
 #include <FastLED.h>
 #include <vector>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include "VFR_Sectional.h"
 
 using namespace std;
 
-#define FASTLED_ESP8266_RAW_PIN_ORDER
-
-#define SERVER "www.aviationweather.gov"
-#define BASE_URI "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
-
 #define DEBUG false
 
-unsigned int lightningLoops;
+#define FASTLED_ESP8266_RAW_PIN_ORDER
 
-int status = WL_IDLE_STATUS;
+#ifndef AW_SERVER
+  #define AW_SERVER "www.aviationweather.gov"
+#endif
 
-#define READ_TIMEOUT 15 // Cancel query if no data received (seconds)
-#define WIFI_TIMEOUT 60 // in seconds
-#define RETRY_TIMEOUT 15000 // in ms
-#define REQUEST_INTERVAL 900000 // in ms (15 min is 900000)
+#ifndef BASE_URI
+  #define BASE_URI "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
+#endif
+
+#define READ_TIMEOUT      15      // Cancel query if no data received (seconds)
+#define WIFI_TIMEOUT      60      // in seconds
+
+#define METAR_RETRY_INTERVAL    15000   // in ms
+#ifndef METAR_REQUEST_INTERVAL
+  #define METAR_REQUEST_INTERVAL  900000  // in ms (15 min is 900000)
+#endif
 
 std::vector<unsigned short int> lightningLeds;
 
 // Define the array of leds
 CRGB leds[NUM_AIRPORTS];
+
+WiFiUDP ntpUDP;
+NTPClient timeClient( ntpUDP );
 
 void setup() {
   //Initialize serial and wait for port to open:
@@ -51,28 +60,40 @@ void setup() {
   // the default configuration.
   FastLED.show();
   FastLED.show();
+
+  // Set the NTP client to update with the server only every 24 hours, not the default every hour
+  timeClient.setUpdateInterval( 24 * 60 * 60 * 1000 );
+  timeClient.begin();
 }
 
 void loop() {
-  digitalWrite(LED_BUILTIN, LOW); // on if we're awake
-  int c;
-  const unsigned int lightningLoopThreshold = REQUEST_INTERVAL / LIGHTNING_INTERVAL;
-
+  static bool sleeping = false;
+  static unsigned long metarLast = 0;
+  static unsigned long metarInterval = METAR_REQUEST_INTERVAL;
+  static unsigned long lightningLast = 0;
+  
+  digitalWrite( LED_BUILTIN, LOW ); // on if we're awake
+  
   // Connect to WiFi. We always want a wifi connection for the ESP8266
   if (WiFi.status() != WL_CONNECTED) {
+    Serial.println();
     fill_solid(leds, NUM_AIRPORTS, CRGB::Orange); // indicate status with LEDs, but only on first run or error
     FastLED.show();
     WiFi.mode(WIFI_STA);
     WiFi.hostname("LED Sectional " + WiFi.macAddress());
     //wifi_set_sleep_type(LIGHT_SLEEP_T); // use light sleep mode for all delays
-    Serial.print("WiFi connecting..");
+    Serial.print( "I am " );
+    Serial.println( WiFi.macAddress() );
+    Serial.print("WiFi connecting to SSID ");
+    Serial.print( ssid );
+    Serial.print( "..." );
     WiFi.begin(ssid, pass);
     // Wait up to 1 minute for connection...
-    for (c = 0; (c < WIFI_TIMEOUT) && (WiFi.status() != WL_CONNECTED); c++) {
+    for (unsigned int c = 0; (c < WIFI_TIMEOUT) && (WiFi.status() != WL_CONNECTED); c++) {
       Serial.write('.');
       delay(1000);
     }
-    if (c >= WIFI_TIMEOUT) { // If it didn't connect within WIFI_TIMEOUT
+    if (WiFi.status() != WL_CONNECTED) { // If it didn't connect within WIFI_TIMEOUT
       Serial.println("Failed. Will retry...");
       fill_solid(leds, NUM_AIRPORTS, CRGB::Orange);
       FastLED.show();
@@ -83,51 +104,102 @@ void loop() {
     FastLED.show();
   }
 
+  timeClient.update();
+  
+  if( DO_SLEEP )
+  {
+    int hoursNow = timeClient.getHours();
+
+    bool shouldBeAsleep = (SLEEP_START_ZULU <= hoursNow) && (hoursNow < SLEEP_END_ZULU);
+
+    if( !sleeping && shouldBeAsleep )
+    {
+      Serial.println( "Time for bed!" );
+      sleeping = true;
+
+      // Turn off METAR LEDs
+      fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+      FastLED.show();
+    }
+    else if( sleeping && !shouldBeAsleep )
+    {
+      Serial.println( "Time to wake up!" );
+      sleeping = false;
+
+      // Reset METAR timer
+      metarLast = 0;
+    }
+  }
+
+  if( sleeping )
+  {
+    digitalWrite( LED_BUILTIN, HIGH );
+    delay( 60 * 1000 );
+    return;
+  }
+
+  if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
+  {
+    if (DEBUG) {
+      fill_gradient_RGB(leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue); // Just let us know we're running
+      FastLED.show();
+    }
+
+    Serial.print("Getting METARs at ");
+    Serial.println( timeClient.getFormattedTime() );
+    
+    metarLast = millis();
+    
+    if( getMetars() )
+    {
+      Serial.println("Refreshing LEDs.");
+      FastLED.show();
+      
+      if( DO_LIGHTNING && lightningLeds.size() > 0 )
+      {
+        lightningLast = 0;
+      }
+      
+      Serial.print( "METAR request again in " );
+      Serial.println( METAR_REQUEST_INTERVAL);
+      
+      metarInterval = METAR_REQUEST_INTERVAL;
+    }
+    else
+    {
+      Serial.print( "METAR fetch failed.  Retry in " );
+      Serial.println( METAR_RETRY_INTERVAL );
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Cyan ); // indicate status with LEDs
+      FastLED.show();
+      metarInterval = METAR_RETRY_INTERVAL;
+    }
+  }
+
   // Do some lightning
-  if (DO_LIGHTNING && lightningLeds.size() > 0) {
-    lightningLoops++;
-    Serial.print("Loop: ");
-    Serial.println(lightningLoops);
+  if( DO_LIGHTNING && (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
+  {
     std::vector<CRGB> lightning(lightningLeds.size());
+    
     for (unsigned short int i = 0; i < lightningLeds.size(); ++i) {
       unsigned short int currentLed = lightningLeds[i];
       lightning[i] = leds[currentLed]; // temporarily store original color
       leds[currentLed] = CRGB::White; // set to white briefly
     }
     FastLED.show();
+    
     delay(25);
+    
     for (unsigned short int i = 0; i < lightningLeds.size(); ++i) {
       unsigned short int currentLed = lightningLeds[i];
       leds[currentLed] = lightning[i]; // restore original color
     }
     FastLED.show();
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(LIGHTNING_INTERVAL); // pause during the interval
+    
+    lightningLast = millis() - 10;
   }
-
-  if (lightningLeds.size() == 0 || !DO_LIGHTNING || lightningLoops >= lightningLoopThreshold) {
-    if (DEBUG) {
-      fill_gradient_RGB(leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue); // Just let us know we're running
-      FastLED.show();
-    }
-
-    Serial.println("Getting METARs ...");
-    if (getMetars()) {
-      Serial.println("Refreshing LEDs.");
-      FastLED.show();
-      if (DO_LIGHTNING && lightningLeds.size() > 0) {
-        lightningLoops = 0;
-        Serial.println("There is lightning, so no long sleep.");
-      } else {
-        Serial.print("No lightning; Going into sleep for: ");
-        Serial.println(REQUEST_INTERVAL);
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(REQUEST_INTERVAL); // delay 10 seconds to give it time to go
-      }
-    } else {
-      delay(RETRY_TIMEOUT); // try again if unsuccessful
-    }
-  }
+  
+  digitalWrite( LED_BUILTIN, HIGH );
+  delay( 1000 );
 }
 
 bool getMetars(){
@@ -163,7 +235,7 @@ bool getMetars(){
   client.setInsecure();
   Serial.println("\nStarting connection to server...");
   // if you get a connection, report back via serial:
-  if (!client.connect(SERVER, 443)) {
+  if (!client.connect(AW_SERVER, 443)) {
     Serial.println("Connection failed!");
     client.stop();
     return false;
@@ -174,7 +246,7 @@ bool getMetars(){
     Serial.print(airportString);
     Serial.println(" HTTP/1.1");
     Serial.print("Host: ");
-    Serial.println(SERVER);
+    Serial.println(AW_SERVER);
     Serial.println("Connection: close");
     Serial.println();
     // Make a HTTP request, and print it to console:
@@ -183,7 +255,7 @@ bool getMetars(){
     client.print(airportString);
     client.println(" HTTP/1.1");
     client.print("Host: ");
-    client.println(SERVER);
+    client.println(AW_SERVER);
     client.println("Connection: close");
     client.println();
     client.flush();
@@ -266,16 +338,23 @@ bool getMetars(){
         t = millis(); // Reset timeout clock
       } else if ((millis() - t) >= (READ_TIMEOUT * 1000)) {
         Serial.println("---Timeout---");
-        fill_solid(leds, NUM_AIRPORTS, CRGB::Cyan); // indicate status with LEDs
-        FastLED.show();
         client.stop();
         return false;
       }
     }
   }
+
+  if( led == 99 )
+  {
+    Serial.println( "Error! No airports found!" );
+    // [todo] indicate an error with the LEDs?
+    client.stop();
+    return false;
+  }
+  
   // need to doColor this for the last airport
   doColor(currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring);
-
+  
   // Do the key LEDs now if they exist
   for (int i = 0; i < (NUM_AIRPORTS); i++) {
     // Use this opportunity to set colors for LEDs in our key then build the request string
