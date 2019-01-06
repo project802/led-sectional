@@ -21,12 +21,12 @@ using namespace std;
   #define BASE_URI "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
 #endif
 
-#define READ_TIMEOUT      15      // Cancel query if no data received (seconds)
-#define WIFI_TIMEOUT      60      // in seconds
+#define READ_TIMEOUT_S              15      // Cancel query if no data received (seconds)
 
-#define METAR_RETRY_INTERVAL    15000   // in ms
+#define METAR_RETRY_INTERVAL_S      15    // If fetching a METAR failed, retry again in X seconds
+
 #ifndef METAR_REQUEST_INTERVAL
-  #define METAR_REQUEST_INTERVAL  900000  // in ms (15 min is 900000)
+  #define METAR_REQUEST_INTERVAL_S  900   // in seconds (15 min is 900000)
 #endif
 
 #ifdef DO_LIGHTNING
@@ -41,7 +41,7 @@ NTPClient timeClient( ntpUDP );
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin( 115200 );
 
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
@@ -49,8 +49,8 @@ void setup()
 
   // Initialize METAR LEDs
   fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
-  FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>( leds, NUM_AIRPORTS ).setCorrection( TypicalLEDStrip );
-  FastLED.setBrightness( BRIGHTNESS );
+  FastLED.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>( leds, NUM_AIRPORTS ).setCorrection( TypicalLEDStrip );
+  FastLED.setBrightness( BRIGHTNESS_DEFAULT );
 
   // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
   // data pin during boot and configuration, it can cause the first LED to be "skipped" and left in
@@ -69,7 +69,7 @@ void loop()
   static bool sleeping = false;
 #endif
   static unsigned long metarLast = 0;
-  static unsigned long metarInterval = METAR_REQUEST_INTERVAL;
+  static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
 #ifdef DO_LIGHTNING
   static unsigned long lightningLast = 0;
 #endif
@@ -80,37 +80,47 @@ void loop()
 #endif
   
   // Wi-Fi routine
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println();
-    fill_solid(leds, NUM_AIRPORTS, CRGB::Orange); // indicate status with LEDs, but only on first run or error
-    FastLED.show();
-    WiFi.mode(WIFI_STA);
-
+  if (WiFi.status() != WL_CONNECTED)
+  {
     String mac = WiFi.macAddress();
     int pos;
     while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
-    WiFi.hostname( "LED-Sectional-" + mac );
+
+    String myHostname = "LED-Sectional-" + mac;
     
-    //wifi_set_sleep_type(LIGHT_SLEEP_T); // use light sleep mode for all delays
-    Serial.print( "I am " );
-    Serial.println( WiFi.macAddress() );
-    Serial.print("WiFi connecting to SSID ");
+    Serial.println();
+    Serial.println( "I am \"" + myHostname + "\"" );
+    Serial.print( "Connecting to SSID \"" );
     Serial.print( ssid );
-    Serial.print( "..." );
-    WiFi.begin(ssid, pass);
+    Serial.print( "\"..." );
+    
+    // Show Wi-Fi is not connected with Orange across the board
+    fill_solid( leds, NUM_AIRPORTS, CRGB::Orange );
+    FastLED.show();
+    
+    WiFi.mode( WIFI_STA );
+    WiFi.hostname( myHostname );
+    WiFi.begin( ssid, pass );
+    
     // Wait up to 1 minute for connection...
-    for (unsigned c = 0; (c < WIFI_TIMEOUT) && (WiFi.status() != WL_CONNECTED); c++) {
+    for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
+    {
       Serial.write('.');
       delay(1000);
     }
-    if (WiFi.status() != WL_CONNECTED) { // If it didn't connect within WIFI_TIMEOUT
+    
+    if( WiFi.status() != WL_CONNECTED )
+    {
       Serial.println("Failed. Will retry...");
       fill_solid(leds, NUM_AIRPORTS, CRGB::Orange);
       FastLED.show();
       return;
     }
-    Serial.println("OK!");
-    fill_solid(leds, NUM_AIRPORTS, CRGB::Purple); // indicate status with LEDs
+    
+    Serial.println( "OK!" );
+    
+    // Show success with Purple across the board
+    fill_solid( leds, NUM_AIRPORTS, CRGB::Purple );
     FastLED.show();
   }
 
@@ -129,7 +139,7 @@ void loop()
       sleeping = true;
 
       // Turn off METAR LEDs
-      fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
       FastLED.show();
     }
     else if( sleeping && !shouldBeAsleep )
@@ -144,7 +154,9 @@ void loop()
 
   if( sleeping )
   {
+#ifdef SECTIONAL_DEBUG
     digitalWrite( LED_BUILTIN, HIGH );
+#endif
     delay( 60 * 1000 );
     return;
   }
@@ -154,11 +166,11 @@ void loop()
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
   {
 #ifdef SECTIONAL_DEBUG
-    fill_gradient_RGB(leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue); // Just let us know we're running
+    fill_gradient_RGB( leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue ); // Just let us know we're running
     FastLED.show();
 #endif
 
-    Serial.print("Getting METARs at ");
+    Serial.print( "Getting METARs at " );
     Serial.println( timeClient.getFormattedTime() );
    
     if( getMetars() )
@@ -171,18 +183,21 @@ void loop()
 #endif
       
       Serial.print( "METAR request again in " );
-      Serial.println( METAR_REQUEST_INTERVAL);
+      Serial.print( METAR_REQUEST_INTERVAL_S );
+      Serial.println( " seconds." );
       
-      metarInterval = METAR_REQUEST_INTERVAL;
+      metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
     }
     else
     {
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Cyan ); // indicate status with LEDs
+      // Indicate error with Cyan
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Cyan );
 
       Serial.print( "METAR fetch failed.  Retry in " );
-      Serial.println( METAR_RETRY_INTERVAL );
+      Serial.print( METAR_RETRY_INTERVAL_S );
+      Serial.println( " seconds." );
       
-      metarInterval = METAR_RETRY_INTERVAL;
+      metarInterval = METAR_RETRY_INTERVAL_S * 1000;
     }
 
     FastLED.show();
@@ -194,9 +209,10 @@ void loop()
   // Lightning routine
   if( (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
   {
-    std::vector<CRGB> lightning(lightningLeds.size());
+    std::vector<CRGB> lightning( lightningLeds.size() );
     
-    for (unsigned i = 0; i < lightningLeds.size(); ++i) {
+    for( unsigned i = 0; i < lightningLeds.size(); ++i )
+    {
       unsigned currentLed = lightningLeds[i];
       lightning[i] = leds[currentLed]; // temporarily store original color
       leds[currentLed] = CRGB::White; // set to white briefly
@@ -205,7 +221,8 @@ void loop()
     
     delay(25);
     
-    for (unsigned i = 0; i < lightningLeds.size(); ++i) {
+    for( unsigned i = 0; i < lightningLeds.size(); ++i )
+    {
       unsigned currentLed = lightningLeds[i];
       leds[currentLed] = lightning[i]; // restore original color
     }
@@ -215,11 +232,11 @@ void loop()
   }
 #endif
 
-  // All done.  Turn off onboard LED and yeild.
 #ifdef SECTIONAL_DEBUG
   digitalWrite( LED_BUILTIN, HIGH );
 #endif
 
+  // All done.  Yeild to other processes.
   delay( 1000 );
 }
 
@@ -229,7 +246,8 @@ bool getMetars()
   lightningLeds.clear(); // clear out existing lightning LEDs since they're global
 #endif
 
-  fill_solid(leds, NUM_AIRPORTS, CRGB::Black); // Set everything to black just in case there is no report
+  // Set everything to black just in case there is no report for a given airport
+  fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
   
   unsigned long t;
   char c;
@@ -247,69 +265,89 @@ bool getMetars()
   String currentGusts = "";
   String currentWxstring = "";
   String airportString = "";
-  bool firstAirport = true;
-  for (unsigned i = 0; i < (NUM_AIRPORTS); i++) {
-    if (airports[i] != "NULL" && airports[i] != "VFR" && airports[i] != "MVFR" && airports[i] != "WVFR" && airports[i] != "IFR" && airports[i] != "LIFR") {
-      if (firstAirport) {
-        firstAirport = false;
+
+  for( unsigned i = 0; i < (NUM_AIRPORTS); i++ )
+  {
+    if( airports[i] != "NULL" && airports[i] != "VFR" && airports[i] != "MVFR" && airports[i] != "WVFR" && airports[i] != "IFR" && airports[i] != "LIFR" )
+    {
+      if( airportString.length() == 0 )
+      {
         airportString = airports[i];
-      } else airportString = airportString + "," + airports[i];
+      }
+      else
+      {
+        airportString = airportString + "," + airports[i];
+      }
     }
   }
 
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
-  Serial.println("\nStarting connection to server...");
+  Serial.println( "\nStarting connection to server..." );
   // if you get a connection, report back via serial:
-  if (!client.connect(AW_SERVER, 443)) {
-    Serial.println("Connection failed!");
+  if( !client.connect(AW_SERVER, 443) )
+  {
+    Serial.println( "Connection failed!" );
     client.stop();
     return false;
-  } else {
-    Serial.println("Connected ...");
-    Serial.print("GET ");
-    Serial.print(BASE_URI);
-    Serial.print(airportString);
-    Serial.println(" HTTP/1.1");
-    Serial.print("Host: ");
-    Serial.println(AW_SERVER);
-    Serial.println("Connection: close");
+  }
+  else
+  {
+    Serial.print( "Connected.  Requesting data..." );
+#ifdef SECTIONAL_DEBUG
+    Serial.print( "GET " );
+    Serial.print( BASE_URI );
+    Serial.print( airportString );
+    Serial.println( " HTTP/1.1" );
+    Serial.print( "Host: " );
+    Serial.println( AW_SERVER );
+    Serial.println( "Connection: close" );
     Serial.println();
+#endif
     // Make a HTTP request, and print it to console:
-    client.print("GET ");
-    client.print(BASE_URI);
-    client.print(airportString);
-    client.println(" HTTP/1.1");
-    client.print("Host: ");
-    client.println(AW_SERVER);
-    client.println("Connection: close");
+    client.print( "GET " );
+    client.print( BASE_URI );
+    client.print( airportString );
+    client.println( " HTTP/1.1" );
+    client.print( "Host: " );
+    client.println( AW_SERVER );
+    client.println( "Connection: close" );
     client.println();
     client.flush();
+    
     t = millis(); // start time
     FastLED.clear();
 
-    Serial.print("Getting data");
-
-    while (!client.connected()) {
-      if ((millis() - t) >= (READ_TIMEOUT * 1000)) {
-        Serial.println("---Timeout---");
+    while( !client.connected() )
+    {
+      if( (millis() - t) >= (READ_TIMEOUT_S * 1000) )
+      {
+        Serial.println( "---Timeout---" );
         client.stop();
         return false;
       }
-      Serial.print(".");
-      delay(1000);
+      Serial.print( "." );
+      delay( 1000 );
     }
 
     Serial.println();
 
-    while (client.connected()) {
-      if ((c = client.read()) >= 0) {
+    Serial.println( "Receiving data..." );
+
+    while( client.connected() )
+    {
+      if( (c = client.read()) >= 0 )
+      {
         yield(); // Otherwise the WiFi stack can crash
         currentLine += c;
-        if (c == '\n') currentLine = "";
-        if (currentLine.endsWith("<station_id>")) { // start paying attention
-          if (led != 99) { // we assume we are recording results at each change in airport; 99 means no airport
-            doColor(currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring);
+        if( c == '\n' ) currentLine = "";
+        if( currentLine.endsWith("<station_id>") )
+        { 
+          // start paying attention
+          // we assume we are recording results at each change in airport; 99 means no airport
+          if( led != 99 )
+          { 
+            doColor( currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring );
           }
           currentAirport = ""; // Reset everything when the airport changes
           readingAirport = true;
@@ -317,54 +355,88 @@ bool getMetars()
           currentWind = "";
           currentGusts = "";
           currentWxstring = "";
-        } else if (readingAirport) {
-          if (!currentLine.endsWith("<")) {
+        }
+        else if( readingAirport )
+        {
+          if( !currentLine.endsWith("<") )
+          {
             currentAirport += c;
-          } else {
+          } 
+          else
+          {
             readingAirport = false;
             led = 99;
-            for (unsigned i = 0; i < NUM_AIRPORTS; i++) {
-              if (airports[i] == currentAirport) {
-                led = i;
-              }
+            for( unsigned i = 0; i < NUM_AIRPORTS; i++ )
+            {
+              if( airports[i] == currentAirport ) led = i;
             }
           }
-        } else if (currentLine.endsWith("<wind_speed_kt>")) {
+        }
+        else if( currentLine.endsWith("<wind_speed_kt>") )
+        {
           readingWind = true;
-        } else if (readingWind) {
-          if (!currentLine.endsWith("<")) {
+        } 
+        else if( readingWind )
+        {
+          if( !currentLine.endsWith("<") )
+          {
             currentWind += c;
-          } else {
+          }
+          else
+          {
             readingWind = false;
           }
-        } else if (currentLine.endsWith("<wind_gust_kt>")) {
+        }
+        else if( currentLine.endsWith("<wind_gust_kt>") )
+        {
           readingGusts = true;
-        } else if (readingGusts) {
-          if (!currentLine.endsWith("<")) {
+        }
+        else if( readingGusts )
+        {
+          if( !currentLine.endsWith("<") )
+          {
             currentGusts += c;
-          } else {
+          }
+          else
+          {
             readingGusts = false;
           }
-        } else if (currentLine.endsWith("<flight_category>")) {
+        }
+        else if( currentLine.endsWith("<flight_category>") )
+        {
           readingCondition = true;
-        } else if (readingCondition) {
-          if (!currentLine.endsWith("<")) {
+        }
+        else if( readingCondition )
+        {
+          if( !currentLine.endsWith("<") )
+          {
             currentCondition += c;
-          } else {
+          }
+          else
+          {
             readingCondition = false;
           }
-        } else if (currentLine.endsWith("<wx_string>")) {
+        }
+        else if( currentLine.endsWith("<wx_string>") )
+        {
           readingWxstring = true;
-        } else if (readingWxstring) {
-          if (!currentLine.endsWith("<")) {
+        }
+        else if( readingWxstring )
+        {
+          if( !currentLine.endsWith("<") )
+          {
             currentWxstring += c;
-          } else {
+          }
+          else
+          {
             readingWxstring = false;
           }
         }
         t = millis(); // Reset timeout clock
-      } else if ((millis() - t) >= (READ_TIMEOUT * 1000)) {
-        Serial.println("---Timeout---");
+      }
+      else if( (millis() - t) >= (READ_TIMEOUT_S * 1000) )
+      {
+        Serial.println( "---Timeout---" );
         client.stop();
         return false;
       }
@@ -383,13 +455,14 @@ bool getMetars()
   doColor( currentAirport, led, currentWind.toInt(), currentGusts.toInt(), currentCondition, currentWxstring );
   
   // Do the key LEDs now if they exist
-  for (unsigned i = 0; i < (NUM_AIRPORTS); i++) {
+  for( unsigned i = 0; i < (NUM_AIRPORTS); i++ )
+  {
     // Use this opportunity to set colors for LEDs in our key then build the request string
-    if (airports[i] == "VFR") leds[i] = CRGB::Green;
-    else if (airports[i] == "WVFR") leds[i] = CRGB::Yellow;
-    else if (airports[i] == "MVFR") leds[i] = CRGB::Blue;
-    else if (airports[i] == "IFR") leds[i] = CRGB::Red;
-    else if (airports[i] == "LIFR") leds[i] = CRGB::Magenta;
+    if( airports[i] == "VFR" ) leds[i] = CRGB::Green;
+    else if( airports[i] == "WVFR" ) leds[i] = CRGB::Yellow;
+    else if( airports[i] == "MVFR" ) leds[i] = CRGB::Blue;
+    else if( airports[i] == "IFR" ) leds[i] = CRGB::Red;
+    else if( airports[i] == "LIFR" ) leds[i] = CRGB::Magenta;
   }
 
   client.stop();
@@ -399,23 +472,23 @@ bool getMetars()
 void doColor( String identifier, unsigned short int led, int wind, int gusts, String condition, String wxstring )
 {
   CRGB color;
-  Serial.print(identifier);
-  Serial.print(": ");
-  Serial.print(condition);
-  Serial.print(" ");
-  Serial.print(wind);
-  Serial.print("G");
-  Serial.print(gusts);
-  Serial.print("kts LED ");
-  Serial.print(led);
-  Serial.print(" WX: ");
-  Serial.println(wxstring);
+  Serial.print( identifier );
+  Serial.print( ": " );
+  Serial.print( condition );
+  Serial.print( " " );
+  Serial.print( wind );
+  Serial.print( "G" );
+  Serial.print( gusts );
+  Serial.print( "kts LED " );
+  Serial.print( led );
+  Serial.print( " WX: " );
+  Serial.println( wxstring );
 
 #ifdef DO_LIGHTNING
   if( wxstring.indexOf("TS") != -1 )
   {
-    Serial.println("... found lightning!");
-    lightningLeds.push_back(led);
+    Serial.println( "... found lightning!" );
+    lightningLeds.push_back( led );
   }
 #endif
 
@@ -441,6 +514,11 @@ void doColor( String identifier, unsigned short int led, int wind, int gusts, St
     {
       color = CRGB::Green;
     }
+  }
+  else if( condition.length() == 0 )
+  {
+    // We should indicate that an airport was in the result without a flight category
+    color = CRGB::White;
   }
   else
   {
