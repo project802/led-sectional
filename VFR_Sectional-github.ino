@@ -1,13 +1,21 @@
 /* If using the NODEMCU and WS2812B, plug the WS2812B LEDs into the Vin and Ground directly, and the data pin */
 
-
+#include "VFR_Sectional.h"
 
 #include <ESP8266WiFi.h>
 #include <FastLED.h>
 #include <vector>
+
+#ifdef DO_SLEEP
 #include <NTPClient.h>
 #include <WiFiUdp.h>
-#include "VFR_Sectional.h"
+#endif
+
+#ifdef DO_TSL2561
+#include <Adafruit_Sensor.h>
+#include <Adafruit_TSL2561_U.h>
+#endif
+
 
 using namespace std;
 
@@ -39,6 +47,11 @@ WiFiUDP ntpUDP;
 NTPClient timeClient( ntpUDP );
 #endif
 
+#ifdef DO_TSL2561
+Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified( TSL2561_ADDR_FLOAT, 1 );
+bool tslPresent;
+#endif
+
 void setup()
 {
   Serial.begin( 115200 );
@@ -58,10 +71,29 @@ void setup()
   FastLED.show();
   FastLED.show();
 
+  // Fresh line
+  Serial.println();
+
 #ifdef DO_SLEEP
   // Set the NTP client to update with the server only every 24 hours, not the default every hour
   timeClient.setUpdateInterval( 24 * 60 * 60 * 1000 );
   timeClient.begin();
+#endif
+
+#ifdef DO_TSL2561
+  if( !tsl.begin() )
+  {
+    Serial.println( "Unable to find TSL2561 lux sensor.  Check sensor address." ); 
+    tslPresent = false;
+  }
+  else
+  {
+    Serial.println( "TSL2561 found." );
+    tslPresent = true;
+
+    tsl.enableAutoRange( true );
+    tsl.setIntegrationTime( TSL2561_INTEGRATIONTIME_402MS );
+  }
 #endif
 }
 
@@ -72,8 +104,13 @@ void loop()
 #endif
   static unsigned long metarLast = 0;
   static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
+  
 #ifdef DO_LIGHTNING
   static unsigned long lightningLast = 0;
+#endif
+
+#ifdef DO_TSL2561
+  static unsigned long tslLast = 0;
 #endif
 
 #ifdef SECTIONAL_DEBUG
@@ -90,7 +127,6 @@ void loop()
 
     String myHostname = "LED-Sectional-" + mac;
     
-    Serial.println();
     Serial.println( "I am \"" + myHostname + "\"" );
     Serial.print( "Connecting to SSID \"" );
     Serial.print( ssid );
@@ -159,6 +195,23 @@ void loop()
 #endif
     delay( 60 * 1000 );
     return;
+  }
+#endif
+
+#ifdef DO_TSL2561
+  // TSL2561 sensor routine
+  if( tslPresent && (millis() - tslLast > 5000) )
+  {
+    sensors_event_t event;
+
+    tsl.getEvent( &event );
+
+#ifdef SECTIONAL_DEBUG
+    Serial.print( "TSL2561: " );
+    Serial.println( event.light );
+#endif
+
+    tslLast = millis();
   }
 #endif
 
