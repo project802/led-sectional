@@ -1,7 +1,7 @@
 #ifndef VFR_SECTIONAL_H
 #define VFR_SECTIONAL_H
 
-#define NUM_AIRPORTS          7       // Number of airports
+#define NUM_AIRPORTS          22      // Number of airports
 
 #define DO_LIGHTNING                  // If defined, flash the airport LED when lightning is in the METAR
 #ifdef DO_LIGHTNING
@@ -18,27 +18,42 @@
 
 #define DO_TSL2561                    // If defined, use the TSL2561 illuminance sensor to dynamically set the LED brightness
 #ifdef DO_TSL2561
-  #define LUX_THRESHOLD       50      // Threshold in lux for switching between high and low brightness
-  #define BRIGHTNESS_LOW      32      // Brightness when below the low level
-  #define BRIGHTNESS_HIGH     128     // Brightness when below the high level
+  #define LUX_THRESHOLD       300     // Threshold in lux for switching between high and low brightness
+  #define BRIGHTNESS_LOW      8       // Brightness when below the low level
+  #define BRIGHTNESS_HIGH     32      // Brightness when below the high level
 #endif
 
 #define LED_DATA_PIN          4
 #define LED_TYPE              WS2812B
 #define COLOR_ORDER           GRB
-#define BRIGHTNESS_DEFAULT    64      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
+#define BRIGHTNESS_DEFAULT    8       // Default brightness which optionally gets changed if DO_TSL2561 is enabled
 
 const char ssid[] = "CHANGE-ME";      // your network SSID (name)
 const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)
 
 std::vector<String> airports({
-  "KBOS", // 1
-  "KCQX", // 2
-  "KPVC", // 3
-  "KPVD", // 4
-  "KFMH", // 5
-  "KORH", // 6
-  "KPSF"  // 7 last airport does NOT have a comma after
+  "KJFK", // 1
+  "KHPN", // 2
+  "KPOU", // 3
+  "KALB", // 4
+  "KPSF", // 5
+  "KOXC", // 6
+  "KISP", // 7
+  "KHTO", // 8
+  "KSNC", // 9
+  "KBAF", // 10
+  "KEEN", // 11
+  "KORH", // 12
+  "KIJD", // 13
+  "KBID", // 14
+  "KPVD", // 15
+  "KBOS", // 16
+  "KMHT", // 17
+  "KPVC", // 18
+  "KCQX", // 19
+  "KACK", // 20
+  "KMVY", // 21
+  "KFMH"  // 22
 });
 
 #endif
