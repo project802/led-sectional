@@ -23,7 +23,7 @@ using namespace std;
 
 #define METAR_RETRY_INTERVAL_S      15    // If fetching a METAR failed, retry again in X seconds
 
-#ifndef METAR_REQUEST_INTERVAL
+#ifndef METAR_REQUEST_INTERVAL_S
   #define METAR_REQUEST_INTERVAL_S  900   // in seconds (15 min is 900000)
 #endif
 
@@ -170,9 +170,13 @@ void loop()
     FastLED.show();
 #endif
 
+#ifdef DO_SLEEP
     Serial.print( "Getting METARs at " );
     Serial.println( timeClient.getFormattedTime() );
-   
+#else
+    Serial.println( "Getting METARs" );
+#endif
+
     if( getMetars() )
     {
 #ifdef DO_LIGHTNING
