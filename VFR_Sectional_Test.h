@@ -1,7 +1,7 @@
 #ifndef VFR_SECTIONAL_H
 #define VFR_SECTIONAL_H
 
-#define NUM_AIRPORTS          12       // Number of airports
+#define NUM_AIRPORTS          12      // Number of airports
 
 #define DO_LIGHTNING                  // If defined, flash the airport LED when lightning is in the METAR
 #ifdef DO_LIGHTNING
@@ -39,18 +39,18 @@ std::vector<String> airports({
   "KPVC", // 3
   "KPVD", // 4
   "KFMH", // 5
-  "LIFR", // 6
-  "IFR",  // 7
-  "MVFR", // 8
-  "WVFR", // 9
-  "VFR",  // 10
-  "KXXX", // 11
-  "KZZZ"  // 12
+  "KPSF", // 6
+  "LIFR", // 7
+  "IFR",  // 8
+  "MVFR", // 9
+  "WVFR", // 10
+  "VFR",  // 11
+  "KXXX"  // 12
 });
 
-#define AW_SERVER "project802.net"
-#define BASE_URI "/hosted/led_sectional_test_data?stationString="
-#define METAR_REQUEST_INTERVAL  (30*1000)
+#define AW_SERVER                 "project802.net"
+#define BASE_URI                  "/hosted/led_sectional_test_data?stationString="
+#define METAR_REQUEST_INTERVAL_S  (30*1000)
 
 #define SECTIONAL_DEBUG
 
