@@ -11,8 +11,6 @@
 
 using namespace std;
 
-#define FASTLED_ESP8266_RAW_PIN_ORDER
-
 #ifndef AW_SERVER
   #define AW_SERVER "www.aviationweather.gov"
 #endif
@@ -21,7 +19,7 @@ using namespace std;
   #define BASE_URI "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
 #endif
 
-#define READ_TIMEOUT_S              15      // Cancel query if no data received (seconds)
+#define READ_TIMEOUT_S              15    // Cancel query if no data received (seconds)
 
 #define METAR_RETRY_INTERVAL_S      15    // If fetching a METAR failed, retry again in X seconds
 
@@ -29,15 +27,17 @@ using namespace std;
   #define METAR_REQUEST_INTERVAL_S  900   // in seconds (15 min is 900000)
 #endif
 
+// Array to track the current color assignments to the LED strip
+CRGB leds[NUM_AIRPORTS];
+
 #ifdef DO_LIGHTNING
 std::vector<unsigned short int> lightningLeds;
 #endif
 
-// Define the array of leds
-CRGB leds[NUM_AIRPORTS];
-
+#ifdef DO_SLEEP
 WiFiUDP ntpUDP;
 NTPClient timeClient( ntpUDP );
+#endif
 
 void setup()
 {
@@ -58,9 +58,11 @@ void setup()
   FastLED.show();
   FastLED.show();
 
+#ifdef DO_SLEEP
   // Set the NTP client to update with the server only every 24 hours, not the default every hour
   timeClient.setUpdateInterval( 24 * 60 * 60 * 1000 );
   timeClient.begin();
+#endif
 }
 
 void loop()
@@ -80,7 +82,7 @@ void loop()
 #endif
   
   // Wi-Fi routine
-  if (WiFi.status() != WL_CONNECTED)
+  if( WiFi.status() != WL_CONNECTED )
   {
     String mac = WiFi.macAddress();
     int pos;
@@ -105,15 +107,13 @@ void loop()
     // Wait up to 1 minute for connection...
     for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
     {
-      Serial.write('.');
-      delay(1000);
+      Serial.write( '.' );
+      delay( 1000 );
     }
     
     if( WiFi.status() != WL_CONNECTED )
     {
-      Serial.println("Failed. Will retry...");
-      fill_solid(leds, NUM_AIRPORTS, CRGB::Orange);
-      FastLED.show();
+      Serial.println( "Failed. Will retry..." );
       return;
     }
     
@@ -124,11 +124,11 @@ void loop()
     FastLED.show();
   }
 
-  timeClient.update();
-
 #ifdef DO_SLEEP
   // Sleep routine
   {
+    timeClient.update();
+      
     int hoursNow = timeClient.getHours();
 
     bool shouldBeAsleep = (SLEEP_START_ZULU <= hoursNow) && (hoursNow < SLEEP_END_ZULU);
@@ -219,7 +219,7 @@ void loop()
     }
     FastLED.show();
     
-    delay(25);
+    delay( 25 );
     
     for( unsigned i = 0; i < lightningLeds.size(); ++i )
     {

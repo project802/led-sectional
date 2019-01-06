@@ -1,7 +1,7 @@
 #ifndef VFR_SECTIONAL_H
 #define VFR_SECTIONAL_H
 
-#define NUM_AIRPORTS          7         // Number of airports
+#define NUM_AIRPORTS          7       // Number of airports
 
 #define DO_LIGHTNING                  // If defined, flash the airport LED when lightning is in the METAR
 #ifdef DO_LIGHTNING
