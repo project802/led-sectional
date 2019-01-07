@@ -1,0 +1,15 @@
+language: c
+sudo: false
+git:
+  depth: false
+  quiet: true
+before_install:
+  - source <(curl -SLs https://raw.githubusercontent.com/adafruit/travis-ci-arduino/master/install.sh)
+install:
+  - arduino --install-library "NTPClient","Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
+script:
+  - build_platform esp8266
+notifications:
+  email:
+    on_success: change
+    on_failure: change
