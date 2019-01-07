@@ -166,12 +166,27 @@ void loop()
     timeClient.update();
       
     int hoursNow = timeClient.getHours();
+    int dayNow = timeClient.getDay();
 
-    bool shouldBeAsleep = (SLEEP_START_ZULU <= hoursNow) && (hoursNow < SLEEP_END_ZULU);
-
+    bool shouldBeAsleep = false;
+    
+    if( dayIsWeekend[dayNow] )
+    {
+      shouldBeAsleep = (SLEEP_WE_START_ZULU <= hoursNow) && (hoursNow < SLEEP_WE_END_ZULU);
+    }
+    else
+    {
+      shouldBeAsleep = (SLEEP_WD_START_ZULU <= hoursNow) && (hoursNow < SLEEP_WD_END_ZULU);
+    }
+    
     if( !sleeping && shouldBeAsleep )
     {
-      Serial.println( "Time for bed!" );
+#ifdef SECTIONAL_DEBUG
+      Serial.print( "Time for bed! dayNow:" );
+      Serial.print( dayNow );
+      Serial.print( " dayIsWeekend:" );
+      Serial.println( dayIsWeekend[dayNow] );
+#endif
       sleeping = true;
 
       // Turn off METAR LEDs
@@ -180,7 +195,9 @@ void loop()
     }
     else if( sleeping && !shouldBeAsleep )
     {
+#ifdef SECTIONAL_DEBUG
       Serial.println( "Time to wake up!" );
+#endif
       sleeping = false;
 
       // Reset METAR timer

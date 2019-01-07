@@ -12,8 +12,21 @@
 
 #define DO_SLEEP                      // If defined, automatically stop polling and turn off LEDs after a certain time
 #ifdef DO_SLEEP
-  #define SLEEP_START_ZULU    3       // The hour (UTC+0) at which the sectional will sleep
-  #define SLEEP_END_ZULU      11      // The hour (UTC+0) at which the sectional will wake up
+  #define SLEEP_WD_START_ZULU 3       // The hour (UTC+0) at which the sectional will sleep on weekdays
+  #define SLEEP_WD_END_ZULU   22      // The hour (UTC+0) at which the sectional will wake up on weekdays
+  
+  #define SLEEP_WE_START_ZULU 3       // The hour (UTC+0) at which the sectional will sleep on weekends
+  #define SLEEP_WE_END_ZULU   13      // The hour (UTC+0) at which the sectional will wake up on weekends
+  
+  const bool dayIsWeekend[] = {       // Specify which days of the week should use "weekend" hours (true) or "weekday" hours (false)
+    true,   // Sunday
+    false,  // Monday
+    false,  // Tuesday
+    false,  // Wednesday
+    false,  // Thursday
+    false,  // Friday
+    true    // Saturday
+  };
 #endif
 
 #define DO_TSL2561                    // If defined, use the TSL2561 illuminance sensor to dynamically set the LED brightness
