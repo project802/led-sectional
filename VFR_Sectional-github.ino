@@ -5,7 +5,6 @@
 #include <ESP8266WiFi.h>
 #include <FastLED.h>
 #include <vector>
-#include <limits>
 
 #ifdef DO_SLEEP
 #include <NTPClient.h>
@@ -235,7 +234,7 @@ void loop()
 
         float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
 
-        if( result <= UCHAR_MAX )
+        if( result <= (uint8_t)(~0) )
         {
           brightnessTarget = (uint8_t) result;
         }
