@@ -240,7 +240,7 @@ void loop()
         }
         else
         {
-          brightnessTarget = UCHAR_MAX;
+          brightnessTarget = (uint8_t)(~0);
         }
 
         // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
