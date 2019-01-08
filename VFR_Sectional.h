@@ -31,15 +31,21 @@
 
 #define DO_TSL2561                    // If defined, use the TSL2561 illuminance sensor to dynamically set the LED brightness
 #ifdef DO_TSL2561
-  #define LUX_THRESHOLD       300     // Threshold in lux for switching between high and low brightness
-  #define BRIGHTNESS_LOW      8       // Brightness when below the low level
-  #define BRIGHTNESS_HIGH     32      // Brightness when below the high level
+  const unsigned luxMap[][2] = {
+    { 0, 0 },
+    { 1, 4 },
+    { 50, 4 },
+    { 125, 8 },
+    { 300, 32 },
+    { 65536, 128 },
+    NULL
+  };
 #endif
 
 #define LED_DATA_PIN          4
 #define LED_TYPE              WS2812B
 #define COLOR_ORDER           GRB
-#define BRIGHTNESS_DEFAULT    8       // Default brightness which optionally gets changed if DO_TSL2561 is enabled
+#define BRIGHTNESS_DEFAULT    32      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
 
 const char ssid[] = "CHANGE-ME";      // your network SSID (name)
 const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)

@@ -5,6 +5,7 @@
 #include <ESP8266WiFi.h>
 #include <FastLED.h>
 #include <vector>
+#include <limits>
 
 #ifdef DO_SLEEP
 #include <NTPClient.h>
@@ -38,6 +39,8 @@ using namespace std;
 // Array to track the current color assignments to the LED strip
 CRGB leds[NUM_AIRPORTS];
 
+uint8_t brightnessCurrent = BRIGHTNESS_DEFAULT;
+
 #ifdef DO_LIGHTNING
 std::vector<unsigned short int> lightningLeds;
 #endif
@@ -50,6 +53,7 @@ NTPClient timeClient( ntpUDP );
 #ifdef DO_TSL2561
 Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified( TSL2561_ADDR_FLOAT, 1 );
 bool tslPresent;
+uint8_t brightnessTarget = BRIGHTNESS_DEFAULT;
 #endif
 
 void setup()
@@ -59,17 +63,6 @@ void setup()
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
-
-  // Initialize METAR LEDs
-  fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
-  FastLED.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>( leds, NUM_AIRPORTS ).setCorrection( TypicalLEDStrip );
-  FastLED.setBrightness( BRIGHTNESS_DEFAULT );
-
-  // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
-  // data pin during boot and configuration, it can cause the first LED to be "skipped" and left in
-  // the default configuration.
-  FastLED.show();
-  FastLED.show();
 
   // Fresh line
   Serial.println();
@@ -95,6 +88,17 @@ void setup()
     tsl.setIntegrationTime( TSL2561_INTEGRATIONTIME_402MS );
   }
 #endif
+
+  // Initialize METAR LEDs
+  fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
+  FastLED.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>( leds, NUM_AIRPORTS ).setCorrection( TypicalLEDStrip );
+  FastLED.setBrightness( brightnessCurrent );
+
+  // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
+  // data pin during boot and configuration, it can cause the first LED to be "skipped" and left in
+  // the default configuration.
+  FastLED.show();
+  FastLED.show();
 }
 
 void loop()
@@ -222,13 +226,65 @@ void loop()
     sensors_event_t event;
 
     tsl.getEvent( &event );
+  
+    for( unsigned i = 0; luxMap[i] != NULL; i++ )
+    {
+      if( event.light < luxMap[i][0] )
+      {
+        float slope = (float)(luxMap[i][1] - luxMap[i-1][1]) / (float)(luxMap[i][0] - luxMap[i-1][0]);
 
+        float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
+
+        if( result <= UCHAR_MAX )
+        {
+          brightnessTarget = (uint8_t) result;
+        }
+        else
+        {
+          brightnessTarget = UCHAR_MAX;
+        }
+
+        // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
+        brightnessTarget = brightnessTarget & ~((uint8_t)1);
+
+        // Shortcut values less than 3 to 0.  It doesn't have even color representation any longer.
+        if( brightnessTarget < 3 )
+        {
+          brightnessTarget = 0;
+        }
+        
 #ifdef SECTIONAL_DEBUG
-    Serial.print( "TSL2561: " );
-    Serial.println( event.light );
+        Serial.print( "TSL2561: " );
+        Serial.print( event.light );
+        Serial.print( " between " );
+        Serial.print( luxMap[i-1][0] );
+        Serial.print( " and " );
+        Serial.print( luxMap[i][0] );
+        Serial.print( ", slope " );
+        Serial.print( slope );
+        Serial.print( ", reuslt " );
+        Serial.println( result );
+#endif  
+        break;
+      }
+    }
+    
+    tslLast = millis();
+  }
+
+  if( brightnessCurrent != brightnessTarget )
+  {
+#ifdef SECTIONAL_DEBUG
+    Serial.print( "TSL2561: current " );
+    Serial.print( brightnessCurrent );
+    Serial.print( " target " );
+    Serial.println( brightnessTarget );
 #endif
 
-    tslLast = millis();
+    brightnessCurrent += brightnessCurrent < brightnessTarget ? 2 : -2;
+    
+    FastLED.setBrightness( brightnessCurrent );
+    FastLED.show();
   }
 #endif
 
