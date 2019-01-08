@@ -12,11 +12,12 @@
 
 #define DO_SLEEP                      // If defined, automatically stop polling and turn off LEDs after a certain time
 #ifdef DO_SLEEP
-  #define SLEEP_WD_START_ZULU 3       // The hour (UTC+0) at which the sectional will sleep on weekdays
-  #define SLEEP_WD_END_ZULU   22      // The hour (UTC+0) at which the sectional will wake up on weekdays
+  //#define TIMEZONE            "America/Los_Angeles"  // Specify a time zone if the automatic method doesn't work.  For a list of valid timezones, see http://worldtimeapi.org/timezones
+  #define SLEEP_WD_START      22      // The hour (local) at which the sectional will sleep on weekdays
+  #define SLEEP_WD_END        17      // The hour (local) at which the sectional will wake up on weekdays
   
-  #define SLEEP_WE_START_ZULU 3       // The hour (UTC+0) at which the sectional will sleep on weekends
-  #define SLEEP_WE_END_ZULU   13      // The hour (UTC+0) at which the sectional will wake up on weekends
+  #define SLEEP_WE_START      23      // The hour (local) at which the sectional will sleep on weekends
+  #define SLEEP_WE_END        7       // The hour (local) at which the sectional will wake up on weekends
   
   const bool dayIsWeekend[] = {       // Specify which days of the week should use "weekend" hours (true) or "weekday" hours (false)
     true,   // Sunday
@@ -31,13 +32,14 @@
 
 #define DO_TSL2561                    // If defined, use the TSL2561 illuminance sensor to dynamically set the LED brightness
 #ifdef DO_TSL2561
-  const unsigned luxMap[][2] = {
-    { 0, 0 },
-    { 1, 4 },
-    { 50, 4 },
-    { 125, 8 },
-    { 300, 32 },
-    { 65536, 128 }
+  const unsigned luxMap[][2] = {      // Map of lux vs LED intensity.
+    // Lux,   Intensity
+    { 0,      0 },                    // REQUIRED index of 0
+    { 1,      4 },                    // Fill in any points desired to define the curve.
+    { 50,     4 },                    // Spaces between points are linearly interpreted.
+    { 125,    8 },                    // Use SECTIONAL_DEBUG to print out sensor values to help tuning.
+    { 300,    32 },                   // First and last index are required but the values can be changed.
+    { 65536,  128 }                   // REQUIRED index of 65536
   };
 #endif
 

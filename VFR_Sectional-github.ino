@@ -7,8 +7,7 @@
 #include <vector>
 
 #ifdef DO_SLEEP
-#include <NTPClient.h>
-#include <WiFiUdp.h>
+#include "WorldTimeAPI.h"
 #endif
 
 #ifdef DO_TSL2561
@@ -45,8 +44,12 @@ std::vector<unsigned short int> lightningLeds;
 #endif
 
 #ifdef DO_SLEEP
-WiFiUDP ntpUDP;
-NTPClient timeClient( ntpUDP );
+#ifdef TIMEZONE
+WorldTimeAPI wtAPI = WorldTimeAPI( WorldTimeAPI::TIME_USING_TIMEZONE, TIMEZONE );
+#else
+WorldTimeAPI wtAPI = WorldTimeAPI();
+#endif
+
 #endif
 
 #ifdef DO_TSL2561
@@ -65,12 +68,6 @@ void setup()
 
   // Fresh line
   Serial.println();
-
-#ifdef DO_SLEEP
-  // Set the NTP client to update with the server only every 24 hours, not the default every hour
-  timeClient.setUpdateInterval( 24 * 60 * 60 * 1000 );
-  timeClient.begin();
-#endif
 
 #ifdef DO_TSL2561
   if( !tsl.begin() )
@@ -102,12 +99,13 @@ void setup()
 
 void loop()
 {
+  static unsigned long metarLast = 0;
+  static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
+
 #ifdef DO_SLEEP
   static bool sleeping = false;
 #endif
-  static unsigned long metarLast = 0;
-  static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-  
+
 #ifdef DO_LIGHTNING
   static unsigned long lightningLast = 0;
 #endif
@@ -157,35 +155,45 @@ void loop()
     }
     
     Serial.println( "OK!" );
-    
-    // Show success with Purple across the board
-    fill_solid( leds, NUM_AIRPORTS, CRGB::Purple );
-    FastLED.show();
+
+    if( metarLast == 0 )
+    {
+      // Show success with Purple across the board if a METAR report is pending so the sectional isn't left in the dark
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Purple );
+      FastLED.show();
+    }
   }
 
 #ifdef DO_SLEEP
   // Sleep routine
   {
-    timeClient.update();
-      
-    int hoursNow = timeClient.getHours();
-    int dayNow = timeClient.getDay();
+    if( wtAPI.update() )
+    {
+      Serial.print( "Time is now " );
+      Serial.println( wtAPI.getFormattedTime() );
+    }
+
+    // What if the update hasn't worked?  Fail hard or gracefully?
+
+    int hoursNow = wtAPI.getHour();
+    int dayNow = wtAPI.getDay();
 
     bool shouldBeAsleep = false;
     
     if( dayIsWeekend[dayNow] )
     {
-      shouldBeAsleep = (SLEEP_WE_START_ZULU <= hoursNow) && (hoursNow < SLEEP_WE_END_ZULU);
+      shouldBeAsleep = (SLEEP_WE_START <= hoursNow) || (hoursNow < SLEEP_WE_END);
     }
     else
     {
-      shouldBeAsleep = (SLEEP_WD_START_ZULU <= hoursNow) && (hoursNow < SLEEP_WD_END_ZULU);
+      shouldBeAsleep = (SLEEP_WD_START <= hoursNow) || (hoursNow < SLEEP_WD_END);
     }
     
     if( !sleeping && shouldBeAsleep )
     {
 #ifdef SECTIONAL_DEBUG
-      Serial.print( "Time for bed! dayNow:" );
+      Serial.print( wtAPI.getFormattedTime() );
+      Serial.print( " time for bed! dayNow:" );
       Serial.print( dayNow );
       Serial.print( " dayIsWeekend:" );
       Serial.println( dayIsWeekend[dayNow] );
@@ -199,7 +207,8 @@ void loop()
     else if( sleeping && !shouldBeAsleep )
     {
 #ifdef SECTIONAL_DEBUG
-      Serial.println( "Time to wake up!" );
+      Serial.print( wtAPI.getFormattedTime() );
+      Serial.println( " time to wake up!" );
 #endif
       sleeping = false;
 
@@ -295,12 +304,7 @@ void loop()
     FastLED.show();
 #endif
 
-#ifdef DO_SLEEP
-    Serial.print( "Getting METARs at " );
-    Serial.println( timeClient.getFormattedTime() );
-#else
     Serial.println( "Getting METARs" );
-#endif
 
     if( getMetars() )
     {
