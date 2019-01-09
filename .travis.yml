@@ -11,9 +11,7 @@ before_install:
 install:
   - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
 script:
-  - pwd
-  - rm WorldTimeAPI.*
-  - build_platform esp8266
+  - arduino --verify LED_Sectional.ino
 notifications:
   email:
     on_success: change
