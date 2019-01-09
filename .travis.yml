@@ -9,9 +9,10 @@ env:
 before_install:
   - source <(curl -SLs https://raw.githubusercontent.com/adafruit/travis-ci-arduino/master/install.sh)
 install:
-  - arduino --install-library "NTPClient","Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
+  - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
 script:
-  - rm $HOME/arduino_ide/libraries/Adafruit_Test_Library
+  - find . -name WorldTimeAPI.h
+  - rm $HOME/WorldTimeAPI.*
   - build_platform esp8266
 notifications:
   email:
