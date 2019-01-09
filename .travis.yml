@@ -12,6 +12,10 @@ install:
   - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
 script:
   - arduino --board esp8266:esp8266:huzzah:eesz=4M3M,xtal=80 --save-prefs
+  - rm $HOME/arduino_ide/libraries/Adafruit_Test_Library
+  - mkdir LED_Sectional
+  - cp *.ino *.h *.cpp LED_Sectional/
+  - cd LED_Sectional
   - arduino --verify LED_Sectional.ino
 notifications:
   email:
