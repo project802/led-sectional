@@ -1,3 +1,9 @@
+/**
+ *  ESP8266 (NodeMCU) LED sectional based on the Arduino framework.
+ *  
+ *  For more information, licensing and instructions, see https://github.com/project802/led-sectional
+ */
+ 
 #ifndef VFR_SECTIONAL_H
 #define VFR_SECTIONAL_H
 

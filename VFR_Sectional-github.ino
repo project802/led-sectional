@@ -1,5 +1,9 @@
-/* If using the NODEMCU and WS2812B, plug the WS2812B LEDs into the Vin and Ground directly, and the data pin */
-
+/**
+ *  ESP8266 (NodeMCU) LED sectional based on the Arduino framework.
+ *  
+ *  For more information, licensing and instructions, see https://github.com/project802/led-sectional
+ */
+ 
 #include "VFR_Sectional.h"
 
 #include <ESP8266WiFi.h>
@@ -14,9 +18,6 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_TSL2561_U.h>
 #endif
-
-
-using namespace std;
 
 #ifndef AW_SERVER
   #define AW_SERVER "www.aviationweather.gov"
@@ -49,7 +50,6 @@ WorldTimeAPI wtAPI = WorldTimeAPI( WorldTimeAPI::TIME_USING_TIMEZONE, TIMEZONE )
 #else
 WorldTimeAPI wtAPI = WorldTimeAPI();
 #endif
-
 #endif
 
 #ifdef DO_TSL2561
@@ -124,6 +124,7 @@ void loop()
   {
     String mac = WiFi.macAddress();
     int pos;
+    // Strip MAC address of colons
     while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
 
     String myHostname = "LED-Sectional-" + mac;
@@ -132,10 +133,13 @@ void loop()
     Serial.print( "Connecting to SSID \"" );
     Serial.print( ssid );
     Serial.print( "\"..." );
-    
-    // Show Wi-Fi is not connected with Orange across the board
-    fill_solid( leds, NUM_AIRPORTS, CRGB::Orange );
-    FastLED.show();
+
+    if( metarLast == 0 )
+    {
+      // Show Wi-Fi is not connected with Orange across the board if a METAR report is pending so the sectional isn't left in the dark
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Orange );
+      FastLED.show();
+    }
     
     WiFi.mode( WIFI_STA );
     WiFi.hostname( myHostname );

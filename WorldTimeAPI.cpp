@@ -1,3 +1,11 @@
+/**
+ *  ESP8266 (NodeMCU) client library for World Time API
+ *  
+ *  Copyright (c) 2018 Chris Vincent
+ *  
+ *  For more information, licensing and instructions, see https://github.com/project802/led-sectional
+ */
+
 #include "WorldTimeAPI.h"
 #include <ESP8266HTTPClient.h>
 
