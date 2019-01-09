@@ -9,6 +9,7 @@
 #include "WorldTimeAPI.h"
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
+#include <ArduinoJson.h>
 
 WorldTimeAPI::WorldTimeAPI( TimeMethod method, String timezone )
 {
@@ -18,10 +19,26 @@ WorldTimeAPI::WorldTimeAPI( TimeMethod method, String timezone )
 
 bool WorldTimeAPI::update()
 {
-  if( (this->_lastUpdateMs != 0) && (millis() - this->_lastUpdateMs < this->_updateIntervalMs) )
+  // When we have received a valid time, operate on update interval
+  // If not, operate on the retry interval
+  if( this->_receivedTime )
   {
-    return false;
+    if( (this->_lastUpdateMs != 0) && (millis() - this->_lastUpdateMs < this->_updateIntervalMs) )
+    {
+      return false;
+    }
   }
+  else
+  {
+    if( (this->_lastAttemptMs != 0) && (millis() - this->_lastAttemptMs < this->_retryIntervalMs) )
+    {
+      return false;
+    }
+  }
+
+  // Assume failure and log attempt
+  this->_receivedTime = false;
+  _lastAttemptMs = millis();
 
   HTTPClient http;
   WiFiClient client;
@@ -50,27 +67,30 @@ bool WorldTimeAPI::update()
     return false;
   }
 
-  String payload = http.getString();
+  String json = http.getString();
   http.end();
+  
+  DynamicJsonDocument jsonDoc;
+  DeserializationError error = deserializeJson( jsonDoc, json );
+  if( error )
+  {
+    Serial.print( "Unable to deserialize JSON.  Error " );
+    Serial.println( error.code() );
+    return false;
+  }
+  
+  JsonObject root = jsonDoc.as<JsonObject>();
+
+  this->_timeSinceEpochS = root["unixtime"];
+
+  // atoi() will stop after the hour component so if support is required for
+  // non-hourly offsets then one needs to parse the second half of the offset as well
+  int utc_offset = atoi( root["utc_offset"] );
+  this->_utcOffsetS = utc_offset * 60 * 60;
 
   this->_lastUpdateMs = millis();
-  
-  int unixtime = payload.indexOf( "unixtime\":\"" );
-  if( unixtime < 0 )
-  {
-    return false;
-  }
-  this->_timeSinceEpochS = payload.substring(unixtime + 11).toInt();
-
-  int utc_offset = payload.indexOf( "utc_offset\":\"" );
-  if( utc_offset < 0 )
-  {
-    return false;
-  }
-  this->setUtcOffset( payload.substring(utc_offset + 13).toInt() * 60 * 60 );
-
   this->_receivedTime = true;
-
+  
   return true;
 }
 
