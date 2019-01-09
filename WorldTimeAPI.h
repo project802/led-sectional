@@ -7,6 +7,8 @@
  */
  
 #pragma once
+#ifndef WORLDTIMEAPI_H
+#define WORLDTIMEAPI_H
 
 #include "Arduino.h"
 
@@ -50,3 +52,5 @@ class WorldTimeAPI {
     unsigned getSecond();
     String getFormattedTime();
 };
+
+#endif

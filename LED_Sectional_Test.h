@@ -3,7 +3,8 @@
  *  
  *  For more information, licensing and instructions, see https://github.com/project802/led-sectional
  */
- 
+
+#pragma once
 #ifndef LED_SECTIONAL_H
 #define LED_SECTIONAL_H
 
