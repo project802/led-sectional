@@ -17,7 +17,7 @@ Use the World Time API to automatically set the time, go to sleep and wake up at
 ## Get Started
 * Download the Arduino IDE
 * Add support for the ESP8266 board
-* Add the "FastLED", "Adafruit Unified Sensor" and "Adafruit TS2561" libraries
+* Add the "ArduinoJson", "FastLED", "Adafruit Unified Sensor" and "Adafruit TS2561" libraries
 * Open the .ino project in this repository.
 * Upload the project 
 
