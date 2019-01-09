@@ -4,7 +4,7 @@
  *  For more information, licensing and instructions, see https://github.com/project802/led-sectional
  */
  
-#include "VFR_Sectional.h"
+#include "LED_Sectional.h"
 
 #include <ESP8266WiFi.h>
 #include <FastLED.h>

@@ -4,14 +4,14 @@
  *  For more information, licensing and instructions, see https://github.com/project802/led-sectional
  */
  
-#ifndef VFR_SECTIONAL_H
-#define VFR_SECTIONAL_H
+#ifndef LED_SECTIONAL_H
+#define LED_SECTIONAL_H
 
 #define NUM_AIRPORTS          22      // Number of airports
 
 #define DO_LIGHTNING                  // If defined, flash the airport LED when lightning is in the METAR
 #ifdef DO_LIGHTNING
-  #define LIGHTNING_INTERVAL  5       // How often the lightning animation will run, in seconds
+  #define LIGHTNING_INTERVAL  2       // How often the lightning animation will run, in seconds
 #endif
 
 #define WIND_THRESHOLD        25      // Wind/gust speed, above which, when VFR will change from green to yellow.  Set high to disable.
@@ -52,34 +52,42 @@
 #define LED_DATA_PIN          4
 #define LED_TYPE              WS2812B
 #define COLOR_ORDER           GRB
-#define BRIGHTNESS_DEFAULT    32      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
+#define BRIGHTNESS_DEFAULT    32
 
 const char ssid[] = "CHANGE-ME";      // your network SSID (name)
 const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)
 
+// Test result includes airports that are not listed here as well
+// as this list includes airports that don't exist in the result.
 std::vector<String> airports({
-  "KJFK", // 1
-  "KHPN", // 2
-  "KPOU", // 3
-  "KALB", // 4
-  "KPSF", // 5
-  "KOXC", // 6
-  "KISP", // 7
-  "KHTO", // 8
-  "KSNC", // 9
-  "KBAF", // 10
-  "KEEN", // 11
-  "KORH", // 12
-  "KIJD", // 13
-  "KBID", // 14
-  "KPVD", // 15
-  "KBOS", // 16
-  "KMHT", // 17
-  "KPVC", // 18
-  "KCQX", // 19
-  "KACK", // 20
-  "KMVY", // 21
-  "KFMH"  // 22
+  "KBOS", // 1
+  "KCQX", // 2
+  "KPVC", // 3
+  "KPVD", // 4
+  "KFMH", // 5
+  "KPSF", // 6
+  "LIFR", // 7
+  "IFR",  // 8
+  "MVFR", // 9
+  "WVFR", // 10
+  "VFR",  // 11
+  "KXXX", // 12
+  "KXXX", // 13
+  "KXXX", // 14
+  "KXXX", // 15
+  "KXXX", // 16
+  "KXXX", // 17
+  "KXXX", // 18
+  "KXXX", // 19
+  "KXXX", // 20
+  "KXXX", // 21
+  "KXXX"  // 22
 });
+
+#define AW_SERVER                 "project802.net"
+#define BASE_URI                  "/hosted/led_sectional_test_data?stationString="
+#define METAR_REQUEST_INTERVAL_S  (30*1000)
+
+#define SECTIONAL_DEBUG
 
 #endif
