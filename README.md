@@ -1,3 +1,24 @@
 # led-sectional
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1bf778051af14b99bae35fcf90b63509)](https://app.codacy.com/app/chris_66/led-sectional?utm_source=github.com&utm_medium=referral&utm_content=project802/led-sectional&utm_campaign=Badge_Grade_Dashboard)
 [![Build Status](https://travis-ci.com/project802/led-sectional.svg?branch=master)](https://travis-ci.com/project802/led-sectional)
+
+## Introduction
+Display flight conditions on a sectional chart using LEDs.  This project is based on the Arduino framework using an ESP8266 NodeMCU.  Originally based on code from [WKHarmon](https://github.com/WKHarmon/led-sectional) and expanded with some additional features.
+
+#### METARs
+Data is downloaded from the United States' National Weather Service using the TDS API on aviationweather.gov.  
+
+#### Dynamic LED brightness
+Using a TSL2561 light sensor from Adafruit, dynamically control the brightness of the LEDs based on the ambient light.  This improves legibility and conserves power across high and low-lux situations.  For example, turn the LEDs off when the room is dark and scale them up to full brightness when under direct sunlight.
+
+#### Go To Sleep
+Use the World Time API to automatically set the time, go to sleep and wake up at pre-programmed times for either weekdays or weekends.  When sleeping, the LEDs are turned off and METAR queries pause.  This is to be good citizens to the TDS API and conserve power.
+
+## Get Started
+* Download the Arduino IDE
+* Add support for the ESP8266 board
+* Add the "FastLED", "Adafruit Unified Sensor" and "Adafruit TS2561" libraries
+* Open the .ino project in this repository.
+* Upload the project 
+
+If you have a successful upload, you can get started with your customizations.
