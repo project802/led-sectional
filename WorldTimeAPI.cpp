@@ -8,6 +8,7 @@
 
 #include "WorldTimeAPI.h"
 #include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 
 WorldTimeAPI::WorldTimeAPI( TimeMethod method, String timezone )
 {
@@ -23,6 +24,7 @@ bool WorldTimeAPI::update()
   }
 
   HTTPClient http;
+  WiFiClient client;
   String url = String( _serverBaseURL );
 
   switch( this->_timeMethod )
@@ -37,10 +39,12 @@ bool WorldTimeAPI::update()
       break;
   }
 
-  http.begin( url );
+  if( !http.begin(client, url) )
+  {
+    return false;
+  }
 
-  int httpCode = http.GET();
-  if( httpCode == 0 )
+  if( http.GET() != HTTP_CODE_OK )
   {
     http.end();
     return false;
