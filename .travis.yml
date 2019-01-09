@@ -9,8 +9,12 @@ env:
 before_install:
   - source <(curl -SLs https://raw.githubusercontent.com/adafruit/travis-ci-arduino/master/install.sh)
 install:
-  - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor","ESP8266WiFi"
+  - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
 script:
+  - ls -R
+  - rm $HOME/arduino_ide/libraries/Adafruit_Test_Library
+  - build_platform esp8266
+  - ls -R
   - arduino --verify LED_Sectional.ino
 notifications:
   email:
