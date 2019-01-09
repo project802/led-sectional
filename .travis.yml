@@ -11,6 +11,7 @@ before_install:
 install:
   - arduino --install-library "NTPClient","Adafruit TSL2561","FastLED","Adafruit Unified Sensor"
 script:
+  - rm $HOME/arduino_ide/libraries/Adafruit_Test_Library
   - build_platform esp8266
 notifications:
   email:
