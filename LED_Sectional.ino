@@ -174,6 +174,7 @@ void loop()
 
 #ifdef DO_SLEEP
   // Sleep routine
+  do
   {
     if( wtAPI.update() )
     {
@@ -181,8 +182,11 @@ void loop()
       Serial.println( wtAPI.getFormattedTime() );
     }
 
-    // What if the update hasn't worked?  Fail hard or gracefully?
-
+    if( !wtAPI.timeReceived() )
+    {
+      break;
+    }
+    
     int hoursNow = wtAPI.getHour();
     int dayNow = wtAPI.getDay();
 
@@ -224,6 +228,7 @@ void loop()
       metarLast = 0;
     }
   }
+  while( 0 );
 
   if( sleeping )
   {
