@@ -122,7 +122,89 @@ void loop()
   // Turn on the onboard LED
   digitalWrite( LED_BUILTIN, LOW );
 #endif
-  
+
+#ifdef DO_SLEEP
+  // Sleep routine
+  do
+  {
+    // Only update the time if we aren't asleep and on Wi-Fi.
+    // Sleeping disconnects Wi-Fi so we don't want the corner case where we are off Wi-Fi
+    // and a time update fails so timeReceived returns false and we never wake up due to 
+    // a lack of time!  Since sleeping isn't true until we have time, this is guaranteed
+    // to not have a startup conflict.  If the update period expires while we are asleep
+    // thats ok we will wake up according to the last time update then sync again first thing.
+    if( !sleeping && (WiFi.status() == WL_CONNECTED) )
+    {
+      if( wtAPI.update() )
+      {
+        Serial.print( "Time is now " );
+        Serial.println( wtAPI.getFormattedTime() );
+      }
+    }
+
+    // Without any valid time, we can't appropriately know when to sleep and wake up so abort.
+    if( !wtAPI.timeReceived() )
+    {
+      break;
+    }
+    
+    int hourNow = wtAPI.getHour();
+    int dayNow = wtAPI.getDay();
+
+    bool shouldBeAsleep = false;
+    
+    if( dayIsWeekend[dayNow] )
+    {
+      shouldBeAsleep = (SLEEP_WE_START <= hourNow) || (hourNow < SLEEP_WE_END);
+    }
+    else
+    {
+      shouldBeAsleep = (SLEEP_WD_START <= hourNow) || (hourNow < SLEEP_WD_END);
+    }
+    
+    if( !sleeping && shouldBeAsleep )
+    {
+#ifdef SECTIONAL_DEBUG
+      Serial.print( wtAPI.getFormattedTime() );
+      Serial.print( " time for bed! dayNow:" );
+      Serial.print( dayNow );
+      Serial.print( " dayIsWeekend:" );
+      Serial.println( dayIsWeekend[dayNow] );
+#endif
+      sleeping = true;
+
+      // Turn off METAR LEDs
+      fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
+      FastLED.show();
+
+      WiFi.mode( WIFI_OFF );
+      WiFi.forceSleepBegin();
+      delay( 500 );
+    }
+    else if( sleeping && !shouldBeAsleep )
+    {
+#ifdef SECTIONAL_DEBUG
+      Serial.print( wtAPI.getFormattedTime() );
+      Serial.println( " time to wake up!" );
+#endif
+      sleeping = false;
+
+      // Reset METAR timer
+      metarLast = 0;
+    }
+
+    if( sleeping )
+    {
+#ifdef SECTIONAL_DEBUG
+      digitalWrite( LED_BUILTIN, HIGH );
+#endif
+      delay( 60 * 1000 );
+      return;
+    }
+#endif
+  }
+  while( 0 );
+
   // Wi-Fi routine
   if( WiFi.status() != WL_CONNECTED )
   {
@@ -171,74 +253,6 @@ void loop()
       FastLED.show();
     }
   }
-
-#ifdef DO_SLEEP
-  // Sleep routine
-  do
-  {
-    if( wtAPI.update() )
-    {
-      Serial.print( "Time is now " );
-      Serial.println( wtAPI.getFormattedTime() );
-    }
-
-    if( !wtAPI.timeReceived() )
-    {
-      break;
-    }
-    
-    int hoursNow = wtAPI.getHour();
-    int dayNow = wtAPI.getDay();
-
-    bool shouldBeAsleep = false;
-    
-    if( dayIsWeekend[dayNow] )
-    {
-      shouldBeAsleep = (SLEEP_WE_START <= hoursNow) || (hoursNow < SLEEP_WE_END);
-    }
-    else
-    {
-      shouldBeAsleep = (SLEEP_WD_START <= hoursNow) || (hoursNow < SLEEP_WD_END);
-    }
-    
-    if( !sleeping && shouldBeAsleep )
-    {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( wtAPI.getFormattedTime() );
-      Serial.print( " time for bed! dayNow:" );
-      Serial.print( dayNow );
-      Serial.print( " dayIsWeekend:" );
-      Serial.println( dayIsWeekend[dayNow] );
-#endif
-      sleeping = true;
-
-      // Turn off METAR LEDs
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
-      FastLED.show();
-    }
-    else if( sleeping && !shouldBeAsleep )
-    {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( wtAPI.getFormattedTime() );
-      Serial.println( " time to wake up!" );
-#endif
-      sleeping = false;
-
-      // Reset METAR timer
-      metarLast = 0;
-    }
-  }
-  while( 0 );
-
-  if( sleeping )
-  {
-#ifdef SECTIONAL_DEBUG
-    digitalWrite( LED_BUILTIN, HIGH );
-#endif
-    delay( 60 * 1000 );
-    return;
-  }
-#endif
 
 #ifdef DO_TSL2561
   // TSL2561 sensor routine
