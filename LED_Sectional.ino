@@ -40,7 +40,7 @@ using namespace tinyxml2;
 #endif
 
 // Array to track the current color assignments to the LED strip
-CRGB leds[NUM_AIRPORTS];
+CRGB *leds;
 
 uint8_t brightnessCurrent = BRIGHTNESS_DEFAULT;
 
@@ -66,6 +66,13 @@ void setup()
 {
   Serial.begin( 115200 );
 
+  leds = (CRGB *) malloc( sizeof(CRGB) * airports.size() );
+  if( leds == NULL )
+  {
+    Serial.println( "Unable to allocate memory for leds!" );
+    while(1) delay(1);
+  }
+  
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
@@ -90,8 +97,8 @@ void setup()
 #endif
 
   // Initialize METAR LEDs
-  fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
-  FastLED.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>( leds, NUM_AIRPORTS ).setCorrection( TypicalLEDStrip );
+  fill_solid( leds, airports.size(), CRGB::Black );
+  FastLED.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>( leds, airports.size() ).setCorrection( TypicalLEDStrip );
   FastLED.setBrightness( brightnessCurrent );
 
   // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
@@ -174,7 +181,7 @@ void loop()
       sleeping = true;
 
       // Turn off METAR LEDs
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
+      fill_solid( leds, airports.size(), CRGB::Black );
       FastLED.show();
 
       WiFi.mode( WIFI_OFF );
@@ -223,7 +230,7 @@ void loop()
     if( metarLast == 0 )
     {
       // Show Wi-Fi is not connected with Orange across the board if a METAR report is pending so the sectional isn't left in the dark
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Orange );
+      fill_solid( leds, airports.size(), CRGB::Orange );
       FastLED.show();
     }
     
@@ -249,7 +256,7 @@ void loop()
     if( metarLast == 0 )
     {
       // Show success with Purple across the board if a METAR report is pending so the sectional isn't left in the dark
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Purple );
+      fill_solid( leds, airports.size(), CRGB::Purple );
       FastLED.show();
     }
   }
@@ -327,7 +334,7 @@ void loop()
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
   {
 #ifdef SECTIONAL_DEBUG
-    fill_gradient_RGB( leds, NUM_AIRPORTS, CRGB::Red, CRGB::Blue ); // Just let us know we're running
+    fill_gradient_RGB( leds, airports.size(), CRGB::Red, CRGB::Blue ); // Just let us know we're running
     FastLED.show();
 #endif
 
@@ -351,7 +358,7 @@ void loop()
     else
     {
       // Indicate error with Cyan
-      fill_solid( leds, NUM_AIRPORTS, CRGB::Cyan );
+      fill_solid( leds, airports.size(), CRGB::Cyan );
 
       Serial.print( "METAR fetch failed.  Retry in " );
       Serial.print( METAR_RETRY_INTERVAL_S );
@@ -475,7 +482,7 @@ bool parseMetarAndAssignLed( const char *xml )
     color = CRGB::White;
   }
   
-  for( unsigned i = 0; i < NUM_AIRPORTS; i++ )
+  for( unsigned i = 0; i < airports.size(); i++ )
   {
     if( airports[i] == stationId )
     {
@@ -508,7 +515,7 @@ bool getMetars()
 {
   String airportString = "";
   
-  for( unsigned i = 0; i < (NUM_AIRPORTS); i++ )
+  for( unsigned i = 0; i < (airports.size()); i++ )
   {
     if( airports[i] != "NULL" && airports[i] != "VFR" && airports[i] != "MVFR" && airports[i] != "WVFR" && airports[i] != "IFR" && airports[i] != "LIFR" )
     {
@@ -528,7 +535,7 @@ bool getMetars()
 #endif
 
   // Set everything to black just in case there is no report for a given airport
-  fill_solid( leds, NUM_AIRPORTS, CRGB::Black );
+  fill_solid( leds, airports.size(), CRGB::Black );
   
   WiFiClientSecure client;
   client.setBufferSizes( 2048, 512 );
@@ -602,7 +609,7 @@ bool getMetars()
   }
 
   // Do the legend LEDs now if they exist
-  for( unsigned i = 0; i < (NUM_AIRPORTS); i++ )
+  for( unsigned i = 0; i < (airports.size()); i++ )
   {
     if( airports[i] == "VFR" ) leds[i] = CRGB::Green;
     else if( airports[i] == "WVFR" ) leds[i] = CRGB::Yellow;

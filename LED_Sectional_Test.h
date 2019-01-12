@@ -8,8 +8,6 @@
 #ifndef LED_SECTIONAL_H
 #define LED_SECTIONAL_H
 
-#define NUM_AIRPORTS          22      // Number of airports
-
 #define DO_LIGHTNING                  // If defined, flash the airport LED when lightning is in the METAR
 #ifdef DO_LIGHTNING
   #define LIGHTNING_INTERVAL  2       // How often the lightning animation will run, in seconds

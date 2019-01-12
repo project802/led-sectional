@@ -8,8 +8,6 @@
 #ifndef LED_SECTIONAL_H
 #define LED_SECTIONAL_H
 
-#define NUM_AIRPORTS          22      // Number of airports
-
 #define DO_LIGHTNING                  // If defined, flash the airport LED when lightning is in the METAR
 #ifdef DO_LIGHTNING
   #define LIGHTNING_INTERVAL  5       // How often the lightning animation will run, in seconds
@@ -44,7 +42,7 @@
     { 0,      0 },                    // REQUIRED index of 0
     { 1,      4 },                    // Fill in any points desired to define the curve.
     { 50,     4 },                    // Spaces between points are linearly interpreted.
-    { 125,    8 },                    // Use SECTIONAL_DEBUG to print out sensor values to help tuning.
+    { 125,    16 },                   // Use SECTIONAL_DEBUG to print out sensor values to help tuning.
     { 300,    32 },                   // First and last index are required but the values can be changed.
     { 65536,  128 }                   // REQUIRED index of 65536
   };
