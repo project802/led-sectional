@@ -11,12 +11,24 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
+/**
+ * Construct the WorldTimeAPI class.  Does not fetch the time.
+ * 
+ * @param method Which method to use when asking for the current time
+ * @param timezone Used when the method to fetch time is TIME_USING_TIMEZONE
+ */
 WorldTimeAPI::WorldTimeAPI( TimeMethod method, String timezone )
 {
   this->_timeMethod = method;
   this->_timezone = timezone;
 }
 
+/**
+ * Main working function of WorldTimeAPI.  Call in the loop and this will 
+ * take care of updating the time automatically.
+ * 
+ * @return true whenever a successful update occurs, false if there is no attempt or a failure
+ */
 bool WorldTimeAPI::update()
 {
   // When we have received a valid time, operate on update interval
@@ -74,13 +86,19 @@ bool WorldTimeAPI::update()
   DeserializationError error = deserializeJson( jsonDoc, json );
   if( error )
   {
-    Serial.print( "Unable to deserialize JSON.  Error " );
+    Serial.print( "WorldTimeAPI: Unable to deserialize JSON.  Error " );
     Serial.println( error.code() );
     return false;
   }
   
   JsonObject root = jsonDoc.as<JsonObject>();
 
+  if( !root["unixtime"] || !root["utc_offset"] )
+  {
+    Serial.println( "WorldTimeAPI: Missing data in response." );
+    return false;
+  }
+  
   this->_timeSinceEpochS = root["unixtime"];
 
   // atoi() will stop after the hour component so if support is required for
@@ -94,32 +112,50 @@ bool WorldTimeAPI::update()
   return true;
 }
 
+/**
+ * @return the time in seconds since the unix epoch
+ */
 unsigned long WorldTimeAPI::getUnixTime()
 {
   // UTC offset + time since epoch in UTC + elapsed time since the last update
   return this->_utcOffsetS + this->_timeSinceEpochS + ((millis() - this->_lastUpdateMs) / 1000);
 }
 
+/**
+ * @return a zero-indexed day of the week with Sunday being zero, Monday one, etc.
+ */
 unsigned WorldTimeAPI::getDay()
 {
-  return (((this->getUnixTime() / 86400L) + 4 ) % 7); //0 is Sunday
+  return (((this->getUnixTime() / 86400L) + 4 ) % 7);
 }
 
+/**
+ * @return The hour component, in 24 hour format, of the current time
+ */
 unsigned WorldTimeAPI::getHour()
 {
   return ((this->getUnixTime() % 86400L) / 3600);
 }
 
+/**
+ * @return The minute component of the current time
+ */
 unsigned WorldTimeAPI::getMinute()
 {
   return ((this->getUnixTime() % 3600) / 60);
 }
 
+/**
+ * @return The second component of the current time
+ */
 unsigned WorldTimeAPI::getSecond()
 {
   return (this->getUnixTime() % 60);
 }
 
+/**
+ * @return A string representing the current time in [H]H:MM:SS
+ */
 String WorldTimeAPI::getFormattedTime()
 {
    char result[12];

@@ -37,18 +37,21 @@ class WorldTimeAPI {
   public:
     WorldTimeAPI( TimeMethod method = TIME_USING_IP, String timezone = "America/New_York" );
 
-    bool update();
-    bool timeReceived()
-    {
-      return this->_receivedTime;
-    }
-    
+    bool update();   
     unsigned long getUnixTime();
     unsigned getDay();
     unsigned getHour();
     unsigned getMinute();
     unsigned getSecond();
     String getFormattedTime();
+
+    /**
+     * @return True if the current time has been sync'd
+     */
+    bool timeReceived()
+    {
+      return this->_receivedTime;
+    }
 };
 
 #endif
