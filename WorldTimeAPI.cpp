@@ -40,8 +40,8 @@ bool WorldTimeAPI::update()
   this->_receivedTime = false;
   _lastAttemptMs = millis();
 
-  HTTPClient http;
   WiFiClient client;
+  HTTPClient http;
   String url = String( _serverBaseURL );
 
   switch( this->_timeMethod )
