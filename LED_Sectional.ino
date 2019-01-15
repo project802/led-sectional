@@ -24,11 +24,11 @@
 using namespace tinyxml2;
 
 #ifndef AW_SERVER
-  #define AW_SERVER "www.aviationweather.gov"
+  #define AW_SERVER                 "www.aviationweather.gov"
 #endif
 
 #ifndef BASE_URI
-  #define BASE_URI "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
+  #define BASE_URI                  "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
 #endif
 
 #define READ_TIMEOUT_S              15      // Cancel query if no data received (seconds)
@@ -42,18 +42,10 @@ using namespace tinyxml2;
 // Array to track the current color assignments to the LED strip
 CRGB *leds;
 
-uint8_t brightnessCurrent = BRIGHTNESS_DEFAULT;
+uint8_t brightnessCurrent =         BRIGHTNESS_DEFAULT;
 
 #ifdef DO_LIGHTNING
 std::vector<unsigned short int> lightningLeds;
-#endif
-
-#ifdef DO_SLEEP
-#ifdef TIMEZONE
-WorldTimeAPI wtAPI = WorldTimeAPI( WorldTimeAPI::TIME_USING_TIMEZONE, TIMEZONE );
-#else
-WorldTimeAPI wtAPI = WorldTimeAPI();
-#endif
 #endif
 
 #ifdef DO_TSL2561
@@ -113,16 +105,8 @@ void loop()
   static unsigned long metarLast = 0;
   static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
 
-#ifdef DO_SLEEP
-  static bool sleeping = false;
-#endif
-
 #ifdef DO_LIGHTNING
   static unsigned long lightningLast = 0;
-#endif
-
-#ifdef DO_TSL2561
-  static unsigned long tslLast = 0;
 #endif
 
 #ifdef SECTIONAL_DEBUG
@@ -134,6 +118,13 @@ void loop()
   // Sleep routine
   do
   {
+#ifdef TIMEZONE
+    static WorldTimeAPI wtAPI = WorldTimeAPI( WorldTimeAPI::TIME_USING_TIMEZONE, TIMEZONE );
+#else
+    static WorldTimeAPI wtAPI = WorldTimeAPI();
+#endif
+    static bool sleeping = false;
+    
     // Only update the time if we aren't asleep and on Wi-Fi.
     // Sleeping disconnects Wi-Fi so we don't want the corner case where we are off Wi-Fi
     // and a time update fails so timeReceived returns false and we never wake up due to 
@@ -263,6 +254,7 @@ void loop()
 
 #ifdef DO_TSL2561
   // TSL2561 sensor routine
+  static unsigned long tslLast = 0;
   if( tslPresent && (millis() - tslLast > 5000) )
   {
     sensors_event_t event;
@@ -343,10 +335,7 @@ void loop()
     if( getMetars() )
     {
 #ifdef DO_LIGHTNING
-      if( lightningLeds.size() > 0 )
-      {
-        lightningLast = 0;
-      }
+      lightningLast = 0;
 #endif
       
       Serial.print( "METAR request again in " );
@@ -579,7 +568,7 @@ bool getMetars()
   // statically allocate high amounts of RAM to read the entire API result at once
   while( client.connected() || client.available() )
   {
-    yield();
+    delay( 0 );
     
     String buffer = client.readStringUntil( '>' ) + ">";
 
@@ -595,7 +584,7 @@ bool getMetars()
       
       while( !metar.endsWith("</METAR>") )
       {
-        yield();
+        delay( 0 );
         metar += client.readStringUntil( '>' ) + ">";;
       }
       
