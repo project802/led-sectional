@@ -25,6 +25,7 @@ script:
   - arduino --verify -v --preserve-temp-files LED_Sectional.ino
   - cd ..
   - ls -R /tmp
+  - cp -r /tmp/arduino_build_* $HOME
 deploy:
   provider: bintray
   file: bintray_descriptor.json
