@@ -14,7 +14,7 @@
 
     "files":
         [
-        {"includePattern": "./LED_Sectional/(LED_Sectional.ino.*)", "uploadPattern": "LED_Sectional/$1", "matrixParams": {"override": 1 }} 
+        {"includePattern": "/tmp/arduino_build_*/(LED_Sectional.ino.*)", "uploadPattern": "LED_Sectional/$1", "matrixParams": {"override": 1 }} 
         ],
     "publish": true
 }
