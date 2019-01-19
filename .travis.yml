@@ -23,6 +23,7 @@ script:
   - cp *.ino *.h *.cpp LED_Sectional/
   - cd LED_Sectional
   - arduino --verify -v LED_Sectional.ino
+  - cp -r /tmp/arduino_build_* ~/
   - cd ..
 deploy:
   provider: bintray
