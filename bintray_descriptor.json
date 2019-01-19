@@ -1,0 +1,20 @@
+{
+    "package": {
+        "name": "led-sectional-continuous",
+        "repo": "led-sectional",
+        "subject": "project802",
+        "desc": "",
+        "vcs_url": "https://github.com/project802/led-sectional.git",
+        "licenses": ["MIT"]
+    },
+
+    "version": {
+        "name": "continuous",
+    },
+
+    "files":
+        [
+        {"includePattern": "\./LED_Sectional/(.*)", "uploadPattern": "LED_Sectional/$1", "matrixParams": {"override": 1 }}
+        ],
+    "publish": true
+}
