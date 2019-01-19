@@ -22,7 +22,7 @@ script:
   - mkdir LED_Sectional
   - cp *.ino *.h *.cpp LED_Sectional/
   - cd LED_Sectional
-  - arduino --verify LED_Sectional.ino
+  - arduino --verify -v LED_Sectional.ino
   - cd ..
 deploy:
   provider: bintray
