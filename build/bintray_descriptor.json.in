@@ -9,7 +9,7 @@
     },
 
     "version": {
-        "name": "continuous"
+        "name": "@VERSION@"
     },
 
     "files":

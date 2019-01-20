@@ -26,6 +26,8 @@ script:
   - cd ..
   - mkdir $HOME/arduino_build
   - cp -r /tmp/arduino_build_*/* $HOME/arduino_build/
+before_deploy:
+  - sed 's/@VERSION@/$TRAVIS_BRANCH/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
 deploy:
   provider: bintray
   file: build/bintray_descriptor.json
