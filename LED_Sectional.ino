@@ -185,9 +185,10 @@ void loop()
       fill_solid( leds, airports.size(), CRGB::Black );
       FastLED.show();
 
-      WiFi.disconnect();
-      while( WiFi.status() == WL_CONNECTED ) delay(0);
+      // Don't use the disconnect() function which changes the config, clearing the SSID & password
       WiFi.mode( WIFI_OFF );
+      while( WiFi.status() == WL_CONNECTED ) delay(0);
+      WiFi.enableSTA( false );
       WiFi.forceSleepBegin();
     }
     else if( sleeping && !shouldBeAsleep )
@@ -201,6 +202,9 @@ void loop()
       // Reset METAR timer
       metarLast = 0;
 
+      WiFi.forceSleepWake();
+      WiFi.enableSTA( true );
+      WiFi.mode( WIFI_STA );
       WiFi.begin();
     }
 
