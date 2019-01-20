@@ -56,8 +56,21 @@ uint8_t brightnessTarget = BRIGHTNESS_DEFAULT;
 
 void setup()
 {
-  Serial.begin( 115200 );
+  String mac = WiFi.macAddress();
+  int pos;
+  // Strip MAC address of colons
+  while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
 
+  String myHostname = "LED-Sectional-" + mac;
+  
+  WiFi.hostname( myHostname );
+
+  Serial.begin( 115200 );
+  
+   // Fresh line
+  Serial.println();
+  Serial.println( "I am \"" + myHostname + "\"" );
+  
   leds = (CRGB *) malloc( sizeof(CRGB) * airports.size() );
   if( leds == NULL )
   {
@@ -68,9 +81,6 @@ void setup()
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
-
-  // Fresh line
-  Serial.println();
 
 #ifdef DO_TSL2561
   if( !tsl.begin() )
@@ -175,9 +185,11 @@ void loop()
       fill_solid( leds, airports.size(), CRGB::Black );
       FastLED.show();
 
+      // Don't use the disconnect() function which changes the config, clearing the SSID & password
       WiFi.mode( WIFI_OFF );
+      while( WiFi.status() == WL_CONNECTED ) delay(0);
+      WiFi.enableSTA( false );
       WiFi.forceSleepBegin();
-      delay( 500 );
     }
     else if( sleeping && !shouldBeAsleep )
     {
@@ -189,6 +201,11 @@ void loop()
 
       // Reset METAR timer
       metarLast = 0;
+
+      WiFi.forceSleepWake();
+      WiFi.enableSTA( true );
+      WiFi.mode( WIFI_STA );
+      WiFi.begin();
     }
 
     if( sleeping )
@@ -206,16 +223,18 @@ void loop()
   // Wi-Fi routine
   if( WiFi.status() != WL_CONNECTED )
   {
-    String mac = WiFi.macAddress();
-    int pos;
-    // Strip MAC address of colons
-    while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
+    // By default, the ESP8266 will use the stored wifi credentials to reconnect to wifi.
+    // Only use the ones programmatically assigned here if there is a failure to connect or none set
 
-    String myHostname = "LED-Sectional-" + mac;
+    if( WiFi.SSID().length() == 0 )
+    {
+      Serial.println( "No WiFi config found.  Starting." );
+      WiFi.mode( WIFI_STA );
+      WiFi.begin( ssid, pass );
+    }
     
-    Serial.println( "I am \"" + myHostname + "\"" );
     Serial.print( "Connecting to SSID \"" );
-    Serial.print( ssid );
+    Serial.print( WiFi.SSID() );
     Serial.print( "\"..." );
 
     if( metarLast == 0 )
@@ -224,10 +243,6 @@ void loop()
       fill_solid( leds, airports.size(), CRGB::Orange );
       FastLED.show();
     }
-    
-    WiFi.mode( WIFI_STA );
-    WiFi.hostname( myHostname );
-    WiFi.begin( ssid, pass );
     
     // Wait up to 1 minute for connection...
     for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
@@ -239,6 +254,8 @@ void loop()
     if( WiFi.status() != WL_CONNECTED )
     {
       Serial.println( "Failed. Will retry..." );
+      WiFi.mode( WIFI_STA );
+      WiFi.begin( ssid, pass );
       return;
     }
     
