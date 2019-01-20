@@ -63,11 +63,14 @@ void setup()
 
   String myHostname = "LED-Sectional-" + mac;
   
-  Serial.println( "I am \"" + myHostname + "\"" );
   WiFi.hostname( myHostname );
-  
-  Serial.begin( 115200 );
 
+  Serial.begin( 115200 );
+  
+   // Fresh line
+  Serial.println();
+  Serial.println( "I am \"" + myHostname + "\"" );
+  
   leds = (CRGB *) malloc( sizeof(CRGB) * airports.size() );
   if( leds == NULL )
   {
@@ -78,9 +81,6 @@ void setup()
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
-
-  // Fresh line
-  Serial.println();
 
 #ifdef DO_TSL2561
   if( !tsl.begin() )
