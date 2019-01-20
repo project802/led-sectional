@@ -220,7 +220,14 @@ void loop()
   if( WiFi.status() != WL_CONNECTED )
   {
     // By default, the ESP8266 will use the stored wifi credentials to reconnect to wifi.
-    // Only use the ones programmatically assigned here if there is a failure to connect.
+    // Only use the ones programmatically assigned here if there is a failure to connect or none set
+
+    if( WiFi.SSID().length() == 0 )
+    {
+      Serial.println( "No WiFi config found.  Starting." );
+      WiFi.mode( WIFI_STA );
+      WiFi.begin( ssid, pass );
+    }
     
     Serial.print( "Connecting to SSID \"" );
     Serial.print( WiFi.SSID() );
