@@ -17,10 +17,24 @@ install:
 script:
   - arduino --board esp8266:esp8266:nodemcuv2:eesz=4M,xtal=80 --save-prefs
   - rm $HOME/arduino_ide/libraries/Adafruit_Test_Library
+  - pwd
+  - ls -R
   - mkdir LED_Sectional
   - cp *.ino *.h *.cpp LED_Sectional/
-  - cd LED_Sectional
-  - arduino --verify LED_Sectional.ino
+  - ( cd LED_Sectional ; arduino --verify --preserve-temp-files LED_Sectional.ino )
+  - mkdir $HOME/arduino_build
+  - cp -r /tmp/arduino_build_*/* $HOME/arduino_build/
+before_deploy:
+  - sed 's/@VERSION@/'"$TRAVIS_BRANCH"'/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
+deploy:
+  provider: bintray
+  file: build/bintray_descriptor.json
+  user: "project802"
+  key:
+    secure: "kWBL1jsivWFUXFgiYi1PXUDaOitaLhtcYbXoQPEZPgJmDzYLaOjmrTYGJJiRvFfKJtUJtTHKLgwhV0EeZRNzRh+Fsdy+9TnL2dzV4aZgQ1DDWabB5wScSNPhAY7JGifmsN3EZS+ouIbnqoY/gWDnUSg2kqj3ZFUqSIkeuoyM17BxAw5HoxXkYoBp6h+uSx/3l167tIgW/tbEX+wXpyXc01cxI9grwayFz7Zrg/UxqZili7YGJdIOWWNy1ehG7xsLWCoGQaERIHEAMDp9cCGuJr9w9DLGKvVXjCPrrdCfL6DEC3aTKm1AfYC2Hd6pHKEuvQ5iR8TljDVfNwEwN397P6232K7xa9PSectCnVXWX42ltZDEL2rftZytyG7bWu0knuco9wqccAs5TUU7zL9NF2Ja5Zcwtb3wpE9dbq9rmJM9MNYyNKUF3QzMfExW26cUZxya39WbSPYqyExlqr1T4+8o1N/z38QWpeVv0JpzFEUFArUcvsh5ubbhXd+ve2FSemBkNyJ9UkF4p+oMlNvhkR073czBhUR3wbqRDZkYQTXx8k1cYZKn9B5b23Bkr7YI7FdH/vrheRpUtneQxIKbRud3ubd4PgYcaLPGcu05MCHTXeZVgOXp9KCxKwQ0cDRrNElMVAl4ZP/GqqvLLWA3j7v1o0RPHAqMCMoscZAwUsE="
+  skip_cleanup: true
+  on:
+    all_branches: true
 notifications:
   email:
     on_success: change

@@ -1,0 +1,20 @@
+{
+    "package": {
+        "name": "continuous",
+        "repo": "led-sectional",
+        "subject": "project802",
+        "desc": "",
+        "vcs_url": "https://github.com/project802/led-sectional.git",
+        "licenses": ["MIT"]
+    },
+
+    "version": {
+        "name": "@VERSION@"
+    },
+
+    "files":
+        [
+        {"includePattern": "/home/travis/arduino_build/(LED_Sectional.ino.*)", "uploadPattern": "@VERSION@/$1", "matrixParams": {"override": 1 }} 
+        ],
+    "publish": true
+}
