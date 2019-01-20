@@ -10,6 +10,7 @@ git:
 env:
   global:
      - ARDUINO_IDE_VERSION="1.8.8"
+     secure: "Dt7BtUopU4aO1Dss73rbWBZhriR83fv/PFbDyCqnFIS74kvcllz6IkY4p3PVL6lVE6qxFVF6n6VyrdPnFJFa79yhJgXsez22AMgoZCOS8VzQQjMOcBxxDBnpMtIMbnGF7Zn+53LL2HTsk/PS9tGrMbbQLedtbczR342BPdyaw1SEVwrMnaNsZm9ckSgKOmeWMgIhe/saKO1BiKeLLK7/DpzToaWfMbMQbxPQvupgEIkfRZzkwGYigOjrsGlgswWiBgyaaA/g08SqVQS/piYn2cJVj4Hb5F/0Y3K0cWlaLp15VDxxnOEFopOOJvg62MWXrFDyjz5Er0k1ZxJvrzStSV7neixZk3dYjwFfM8EpSOhtWeNzuWtuRGvdfZypfm7WK307DrKZbQt5d2FYCEG9eCw9tXsenut3ef3cJfRcJNXiHsNi1Xviepq6YRPK5msbVxmJ6a4YU9DHp2JgpACf9LpPMaBEtUofIod6273P7HPDjs8nr+hgqQYzc9IQo9pSi0BxcKu+E4U9AWtFPcrkEWI9lQkTgr6Itn2LiffsH1MPfBGYbl2lRJhXO4+T2BtdsK4dZMvtVmR7g0F5C57nTAKlFsUIU/LcixHF0Y30NzY2O6F4JYSFdy7lcaYzSvvBEEFmmQGE/jFq+4bFHaVJ2S0wXXBfRNUlBQ9o5ZEzxTM="
 before_install:
   - source <(curl -SLs https://raw.githubusercontent.com/adafruit/travis-ci-arduino/master/install.sh)
 install:
@@ -25,7 +26,7 @@ script:
   - mkdir $HOME/arduino_build
   - cp -r /tmp/arduino_build_*/* $HOME/arduino_build/
 before_deploy:
-  - sed 's/@VERSION@/'"$TRAVIS_BRANCH"'/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
+  - sed -e 's/@VERSION@/'"$TRAVIS_BRANCH"'/' -e 's/@PACKAGE@/continuous/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
 deploy:
   provider: bintray
   file: build/bintray_descriptor.json
@@ -35,6 +36,8 @@ deploy:
   skip_cleanup: true
   on:
     all_branches: true
+after_deploy:
+  - curl 'https://project802.net/travis/hook.php?secret='"$HOOK_SECRET"'&event=deploy_complete&packageName=continuous&versionName='"$TRAVIS_BRANCH"
 notifications:
   email:
     on_success: change
