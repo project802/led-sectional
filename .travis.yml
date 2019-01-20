@@ -11,7 +11,6 @@ env:
   global:
      - ARDUINO_IDE_VERSION="1.8.8"
 before_install:
-  - sed 's/@VERSION@/'"$TRAVIS_BRANCH"'/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
   - source <(curl -SLs https://raw.githubusercontent.com/adafruit/travis-ci-arduino/master/install.sh)
 install:
   - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor","ArduinoJson"
@@ -25,6 +24,9 @@ script:
   - ( cd LED_Sectional ; arduino --verify --preserve-temp-files LED_Sectional.ino )
   - mkdir $HOME/arduino_build
   - cp -r /tmp/arduino_build_*/* $HOME/arduino_build/
+before_deploy:
+  - env
+  - sed 's/@VERSION@/'"$TRAVIS_BRANCH"'/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
 deploy:
   provider: bintray
   file: build/bintray_descriptor.json
