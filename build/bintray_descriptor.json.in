@@ -1,6 +1,6 @@
 {
     "package": {
-        "name": "continuous",
+        "name": "@PACKAGE@",
         "repo": "led-sectional",
         "subject": "project802",
         "desc": "",
@@ -14,7 +14,7 @@
 
     "files":
         [
-        {"includePattern": "/home/travis/arduino_build/(LED_Sectional.ino.*)", "uploadPattern": "continuous/@VERSION@/$1", "matrixParams": {"override": 1 }} 
+        {"includePattern": "/home/travis/arduino_build/(LED_Sectional.ino.*)", "uploadPattern": "@PACKAGE@/@VERSION@/$1", "matrixParams": {"override": 1 }} 
         ],
     "publish": true
 }
