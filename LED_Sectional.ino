@@ -457,35 +457,34 @@ bool parseMetarAndAssignLed( const char *xml )
     windGustKtElem->QueryIntText( &windGustKt );
   }
 
+  struct FlightCatColor
+  {
+    String category;
+    CRGB color;
+  };
+
+  static FlightCatColor flightCatColors[] = 
+  {
+    { "LIFR", CRGB::Magenta },
+    { "IFR",  CRGB::Red },
+    { "MVFR", CRGB::Blue },
+    { "VFR",  CRGB::Green },
+    { "",     CRGB::White }
+  };
+
   CRGB color = CRGB::Black;
+
+  for( unsigned i = 0; i < (sizeof(flightCatColors) / sizeof(struct FlightCatColor)); i++ )
+  {
+    if( flightCatColors[i].category == flightCategory )
+    {
+      color = flightCatColors[i].color;
+    }
+  }
   
-  if( flightCategory == "LIFR" )
+  if( flightCategory == "VFR" && ((windSpeedKt > WIND_THRESHOLD) || (windGustKt > WIND_THRESHOLD)) )
   {
-    color = CRGB::Magenta;
-  }
-  else if( flightCategory == "IFR" )
-  {
-    color = CRGB::Red;
-  }
-  else if( flightCategory == "MVFR" )
-  {
-    color = CRGB::Blue;
-  }
-  else if( flightCategory == "VFR" )
-  {
-    if( (windSpeedKt > WIND_THRESHOLD) || (windGustKt > WIND_THRESHOLD) )
-    {
-      color = CRGB::Yellow;
-    }
-    else
-    {
-      color = CRGB::Green;
-    }
-  }
-  else if( flightCategory.length() == 0 )
-  {
-    // We should indicate that an airport was in the result without a flight category
-    color = CRGB::White;
+    color = CRGB::Yellow;
   }
   
   for( unsigned i = 0; i < airports.size(); i++ )
