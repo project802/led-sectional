@@ -25,7 +25,7 @@ def  deploy_complete( *args, **kwargs ):
     package = jsonObj['package']['name']
     version = jsonObj['version']['name']
     file = "LED_Sectional.ino.bin"
-    url = "https://dl.bintray.com/project802/led-sectional/" + package + "/" + version + "/" + file
+    url = "dl.bintray.com/project802/led-sectional/" + package + "/" + version + "/" + file
 
     if os.path.exists( file ):
         os.remove( file )
@@ -33,7 +33,7 @@ def  deploy_complete( *args, **kwargs ):
     print( "Pausing for bintray to propogate access rights" )
     time.sleep( 10 )
     print( "Downloading " + url )
-    urllib.request.urlretrieve( url, file )
+    urllib.request.urlretrieve( "https://" + url, file )
     print( "Done" )
     subprocess.run( uploadCmd.split() )
 
