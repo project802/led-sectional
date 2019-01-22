@@ -38,7 +38,7 @@ class WorldTimeAPI {
     WorldTimeAPI( TimeMethod method = TIME_USING_IP, String timezone = "America/New_York" );
 
     bool update();   
-    unsigned long getUnixTime();
+    unsigned long getUnixTime( bool utc = true );
     unsigned getDay();
     unsigned getHour();
     unsigned getMinute();

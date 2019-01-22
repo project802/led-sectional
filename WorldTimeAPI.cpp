@@ -115,10 +115,16 @@ bool WorldTimeAPI::update()
 /**
  * @return the time in seconds since the unix epoch
  */
-unsigned long WorldTimeAPI::getUnixTime()
+unsigned long WorldTimeAPI::getUnixTime( bool utc )
 {
-  // UTC offset + time since epoch in UTC + elapsed time since the last update
-  return this->_utcOffsetS + this->_timeSinceEpochS + ((millis() - this->_lastUpdateMs) / 1000);
+  unsigned long retVal = this->_timeSinceEpochS + ((millis() - this->_lastUpdateMs) / 1000);
+  
+  if( !utc )
+  {
+    retVal += this->_utcOffsetS;
+  }
+  
+  return  retVal;
 }
 
 /**
@@ -126,7 +132,7 @@ unsigned long WorldTimeAPI::getUnixTime()
  */
 unsigned WorldTimeAPI::getDay()
 {
-  return (((this->getUnixTime() / 86400L) + 4 ) % 7);
+  return (((this->getUnixTime(false) / 86400L) + 4 ) % 7);
 }
 
 /**
@@ -134,7 +140,7 @@ unsigned WorldTimeAPI::getDay()
  */
 unsigned WorldTimeAPI::getHour()
 {
-  return ((this->getUnixTime() % 86400L) / 3600);
+  return ((this->getUnixTime(false) % 86400L) / 3600);
 }
 
 /**
@@ -142,7 +148,7 @@ unsigned WorldTimeAPI::getHour()
  */
 unsigned WorldTimeAPI::getMinute()
 {
-  return ((this->getUnixTime() % 3600) / 60);
+  return ((this->getUnixTime(false) % 3600) / 60);
 }
 
 /**
@@ -150,7 +156,7 @@ unsigned WorldTimeAPI::getMinute()
  */
 unsigned WorldTimeAPI::getSecond()
 {
-  return (this->getUnixTime() % 60);
+  return (this->getUnixTime(false) % 60);
 }
 
 /**
