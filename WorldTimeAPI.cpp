@@ -82,7 +82,7 @@ bool WorldTimeAPI::update()
   String json = http.getString();
   http.end();
   
-  DynamicJsonDocument jsonDoc;
+  DynamicJsonDocument jsonDoc( 1024 );
   DeserializationError error = deserializeJson( jsonDoc, json );
   if( error )
   {
