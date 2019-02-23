@@ -146,7 +146,9 @@ void loop()
       if( wtAPI.update() )
       {
         Serial.print( "Time is now " );
-        Serial.println( wtAPI.getFormattedTime() );
+        Serial.print( wtAPI.getFormattedTime() );
+        Serial.print( ", day " );
+        Serial.println( wtAPI.getDayOfYear() );
       }
     }
 
@@ -157,11 +159,18 @@ void loop()
     }
     
     int hourNow = wtAPI.getHour();
-    int dayNow = wtAPI.getDay();
+    int dayNow = wtAPI.getDayOfWeek();
 
+    bool dayIsHoliday = false;
+    for( unsigned i = 0; i < holidays.size(); i++ )
+    {
+      if( holidays[i] == wtAPI.getDayOfYear() )
+        dayIsHoliday = true;
+    }
+    
     bool shouldBeAsleep = false;
     
-    if( dayIsWeekend[dayNow] )
+    if( dayIsWeekend[dayNow] || dayIsHoliday )
     {
       shouldBeAsleep = (SLEEP_WE_START <= hourNow) || (hourNow < SLEEP_WE_END);
     }

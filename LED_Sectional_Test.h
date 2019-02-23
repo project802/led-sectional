@@ -83,6 +83,21 @@ std::vector<String> airports({
   "KXXX"  // 22
 });
 
+// List of US 2019 federal holidays as day of the year
+std::vector<unsigned> holidays({
+  1,    // NY
+  21,   // MLK Jr Birthday
+  49,   // Washington's Birthday
+  147,  // Memorial Day
+  185,  // Independence Day
+  245,  // Labor Day
+  287,  // Columbus Day
+  315,  // Verterans Day
+  332,  // Thanksgiving Day
+  359   // Christmas Day
+});
+
+
 #define AW_SERVER                 "project802.net"
 #define BASE_URI                  "/hosted/led_sectional_test_data?stationString="
 #define METAR_REQUEST_INTERVAL_S  (30*1000)

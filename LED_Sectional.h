@@ -81,4 +81,18 @@ std::vector<String> airports({
   "KFMH"  // 22
 });
 
+// List of US 2019 federal holidays as day of the year
+std::vector<unsigned> holidays({
+  1,    // NY
+  21,   // MLK Jr Birthday
+  49,   // Washington's Birthday
+  147,  // Memorial Day
+  185,  // Independence Day
+  245,  // Labor Day
+  287,  // Columbus Day
+  315,  // Verterans Day
+  332,  // Thanksgiving Day
+  359   // Christmas Day
+});
+
 #endif
