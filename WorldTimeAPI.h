@@ -26,10 +26,11 @@ class WorldTimeAPI {
     const unsigned long   _retryIntervalMs    = (60*1000);
 
     bool                  _receivedTime       = false;
+    long                  _utcOffsetS         = 0;
     unsigned long         _timeSinceEpochS    = 0;
     unsigned long         _lastUpdateMs       = 0;
     unsigned long         _lastAttemptMs      = 0;
-    unsigned long         _yearStarted        = 0;
+    unsigned long         _yearStartedUtc     = 0;
 
     TimeMethod            _timeMethod;
     String                _timezone;
@@ -38,7 +39,7 @@ class WorldTimeAPI {
     WorldTimeAPI( TimeMethod method = TIME_USING_IP, String timezone = "America/New_York" );
 
     bool update();   
-    unsigned long getUnixTime();
+    unsigned long getUnixTime( bool utc = true );
     unsigned getDayOfWeek();
     unsigned getHour();
     unsigned getMinute();

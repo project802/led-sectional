@@ -96,16 +96,21 @@ bool WorldTimeAPI::update()
   
   JsonObject root = jsonDoc.as<JsonObject>();
 
-  if( !root["unixtime"] || !root["day_of_year"] )
+  if( !root["unixtime"] || !root["utc_offset"] || !root["day_of_year"] )
   {
     Serial.println( "WorldTimeAPI: Missing data in response." );
     return false;
   }
   
   this->_timeSinceEpochS = root["unixtime"];
+
+  // atoi() will stop after the hour component so if support is required for
+  // non-hourly offsets then one needs to parse the second half of the offset as well
+  int utc_offset = atoi( root["utc_offset"] );
+  this->_utcOffsetS = utc_offset * 60 * 60;
   
   unsigned dayOfYear = root["day_of_year"];
-  this->_yearStarted = this->_timeSinceEpochS - ((dayOfYear-1) * 24 * 60 * 60) - (this->getHour() * 60 * 60) - (this->getMinute() * 60) - this->getSecond();
+  this->_yearStartedUtc = this->_timeSinceEpochS + this->_utcOffsetS - ((dayOfYear-1) * 24 * 60 * 60) - (this->getHour() * 60 * 60) - (this->getMinute() * 60) - this->getSecond();
   
   this->_receivedTime = true;
   
@@ -115,9 +120,14 @@ bool WorldTimeAPI::update()
 /**
  * @return the time in seconds since the unix epoch
  */
-unsigned long WorldTimeAPI::getUnixTime()
+unsigned long WorldTimeAPI::getUnixTime( bool utc )
 {
   unsigned long retVal = this->_timeSinceEpochS + ((millis() - this->_lastUpdateMs) / 1000);
+
+  if( !utc )
+  {
+    retVal += this->_utcOffsetS;
+  }
   
   return  retVal;
 }
@@ -127,7 +137,7 @@ unsigned long WorldTimeAPI::getUnixTime()
  */
 unsigned WorldTimeAPI::getDayOfWeek()
 {
-  return (((this->getUnixTime() / 86400L) + 4 ) % 7);
+  return (((this->getUnixTime(false) / 86400L) + 4 ) % 7);
 }
 
 /**
@@ -135,7 +145,7 @@ unsigned WorldTimeAPI::getDayOfWeek()
  */
 unsigned WorldTimeAPI::getHour()
 {
-  return ((this->getUnixTime() % 86400L) / 3600);
+  return ((this->getUnixTime(false) % 86400L) / 3600);
 }
 
 /**
@@ -143,7 +153,7 @@ unsigned WorldTimeAPI::getHour()
  */
 unsigned WorldTimeAPI::getMinute()
 {
-  return ((this->getUnixTime() % 3600) / 60);
+  return ((this->getUnixTime(false) % 3600) / 60);
 }
 
 /**
@@ -151,7 +161,7 @@ unsigned WorldTimeAPI::getMinute()
  */
 unsigned WorldTimeAPI::getSecond()
 {
-  return (this->getUnixTime() % 60);
+  return (this->getUnixTime(false) % 60);
 }
 
 /**
@@ -174,5 +184,5 @@ unsigned WorldTimeAPI::getDayOfYear()
   // This does not work accurately if time crosses into a new year before an update in the new year
   // Would need to compute the length of the year(s) since update, which requires tracking the year from update
   
-  return (this->getUnixTime() - this->_yearStarted) / (24 * 60 * 60) + 1;
+  return (this->getUnixTime(false) - this->_yearStartedUtc) / (24 * 60 * 60) + 1;
 }
