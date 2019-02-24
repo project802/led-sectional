@@ -21,7 +21,7 @@
   
 const bool dayIsWeekend[] = {         // Specify which days of the week should use "weekend" hours (true) or "weekday" hours (false)
   true,   // Sunday
-  true,   // Monday
+  false,  // Monday
   false,  // Tuesday
   false,  // Wednesday
   false,  // Thursday
