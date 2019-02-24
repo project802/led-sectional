@@ -9,50 +9,34 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 #include <FastLED.h>
-#include <vector>
-#include "tinyxml2.h"
-
-#ifdef DO_SLEEP
-#include "WorldTimeAPI.h"
-#endif
-
-#ifdef DO_TSL2561
 #include <Adafruit_Sensor.h>
 #include <Adafruit_TSL2561_U.h>
-#endif
+#include <vector>
+#include "tinyxml2.h"
+#include "WorldTimeAPI.h"
 
 using namespace tinyxml2;
 
 #ifndef AW_SERVER
-  #define AW_SERVER                 "www.aviationweather.gov"
+  #define AW_SERVER             "www.aviationweather.gov"
 #endif
 
 #ifndef BASE_URI
-  #define BASE_URI                  "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
+  #define BASE_URI              "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
 #endif
 
-#define READ_TIMEOUT_S              15      // Cancel query if no data received (seconds)
+const unsigned                  READ_TIMEOUT_S            = 15;
+const unsigned                  METAR_RETRY_INTERVAL_S    = 15;
+const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
 
-#define METAR_RETRY_INTERVAL_S      15      // If fetching a METAR failed, retry again in X seconds
+Adafruit_TSL2561_Unified        tsl                       = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
+uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
+uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
+bool                            tslPresent                = false;
 
-#ifndef METAR_REQUEST_INTERVAL_S
-  #define METAR_REQUEST_INTERVAL_S  (15*60) // Time between METAR fetches in seconds
-#endif
-
-// Array to track the current color assignments to the LED strip
-CRGB *leds;
-
-uint8_t brightnessCurrent =         BRIGHTNESS_DEFAULT;
-
-#ifdef DO_LIGHTNING
+CRGB                            *leds;
 std::vector<unsigned short int> lightningLeds;
-#endif
 
-#ifdef DO_TSL2561
-Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified( TSL2561_ADDR_FLOAT, 1 );
-bool tslPresent;
-uint8_t brightnessTarget = BRIGHTNESS_DEFAULT;
-#endif
 
 void setup()
 {
@@ -82,7 +66,6 @@ void setup()
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
 
-#ifdef DO_TSL2561
   if( !tsl.begin() )
   {
     Serial.println( "Unable to find TSL2561 lux sensor.  Check sensor address." ); 
@@ -96,7 +79,6 @@ void setup()
     tsl.enableAutoRange( true );
     tsl.setIntegrationTime( TSL2561_INTEGRATIONTIME_402MS );
   }
-#endif
 
   // Initialize METAR LEDs
   fill_solid( leds, airports.size(), CRGB::Black );
@@ -114,17 +96,13 @@ void loop()
 {
   static unsigned long metarLast = 0;
   static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-
-#ifdef DO_LIGHTNING
   static unsigned long lightningLast = 0;
-#endif
 
 #ifdef SECTIONAL_DEBUG
   // Turn on the onboard LED
   digitalWrite( LED_BUILTIN, LOW );
 #endif
 
-#ifdef DO_SLEEP
   // Sleep routine
   do
   {
@@ -225,7 +203,6 @@ void loop()
       delay( 60 * 1000 );
       return;
     }
-#endif
   }
   while( 0 );
 
@@ -278,7 +255,6 @@ void loop()
     }
   }
 
-#ifdef DO_TSL2561
   // TSL2561 sensor routine
   static unsigned long tslLast = 0;
   if( tslPresent && (millis() - tslLast > 5000) )
@@ -346,7 +322,6 @@ void loop()
     FastLED.setBrightness( brightnessCurrent );
     FastLED.show();
   }
-#endif
 
   // Metar routine
   if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
@@ -360,9 +335,7 @@ void loop()
 
     if( getMetars() )
     {
-#ifdef DO_LIGHTNING
       lightningLast = 0;
-#endif
       
       Serial.print( "METAR request again in " );
       Serial.print( METAR_REQUEST_INTERVAL_S );
@@ -387,9 +360,8 @@ void loop()
     metarLast = millis();
   }
 
-#ifdef DO_LIGHTNING
   // Lightning routine
-  if( (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
+  if( (LIGHTNING_INTERVAL > 0) && (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
   {
     std::vector<CRGB> lightning( lightningLeds.size() );
     
@@ -412,7 +384,6 @@ void loop()
     
     lightningLast = millis() - 10;
   }
-#endif
 
 #ifdef SECTIONAL_DEBUG
   digitalWrite( LED_BUILTIN, HIGH );
@@ -502,12 +473,10 @@ bool parseMetarAndAssignLed( const char *xml )
     {
       leds[i] = color;
       
-#ifdef DO_LIGHTNING
       if( wxString.indexOf("TS") != -1 )
       {
         lightningLeds.push_back( i );
       }
-#endif
 
 #ifdef SECTIONAL_DEBUG
       Serial.print( stationId + ": " + flightCategory + " " );
@@ -544,9 +513,7 @@ bool getMetars()
     }
   }
 
-#ifdef DO_LIGHTNING
   lightningLeds.clear(); // clear out existing lightning LEDs since they're global
-#endif
 
   // Set everything to black just in case there is no report for a given airport
   fill_solid( leds, airports.size(), CRGB::Black );
