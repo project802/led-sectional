@@ -45,15 +45,13 @@ void setup()
   // Strip MAC address of colons
   while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
 
-  String myHostname = "LED-Sectional-" + mac;
-  
-  WiFi.hostname( myHostname );
+  WiFi.hostname( "LED-Sectional-" + mac );
 
   Serial.begin( 115200 );
   
    // Fresh line
   Serial.println();
-  Serial.println( "I am \"" + myHostname + "\"" );
+  Serial.println( "I am \"" + WiFi.hostname() + "\"" );
   
   leds = (CRGB *) malloc( sizeof(CRGB) * airports.size() );
   if( leds == NULL )
