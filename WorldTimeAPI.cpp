@@ -171,7 +171,7 @@ String WorldTimeAPI::getFormattedTime()
 {
    char result[12];
 
-   snprintf( result, sizeof(result), "%i:%02i:%02i", this->getHour(), this->getMinute(), this->getSecond() );
+   snprintf( result, sizeof(result), "%u:%02u:%02u", this->getHour(), this->getMinute(), this->getSecond() );
 
    return String(result);
 }
