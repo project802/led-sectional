@@ -29,17 +29,17 @@ const bool dayIsWeekend[] = {         // Specify which days of the week should u
   true    // Saturday
 };
 
-// List of US 2019 federal holidays as day of the year
+// List of US 2023 federal holidays as day of the year
 std::vector<unsigned> holidays({
-  1,    // NY
-  21,   // MLK Jr Birthday
-  49,   // Washington's Birthday
-  147,  // Memorial Day
+  2,    // NY
+  16,   // MLK Jr Birthday
+  51,   // Washington's Birthday
+  149,  // Memorial Day
   185,  // Independence Day
-  245,  // Labor Day
-  287,  // Columbus Day
-  315,  // Verterans Day
-  332,  // Thanksgiving Day
+  247,  // Labor Day
+  282,  // Columbus Day
+  314,  // Verterans Day
+  327,  // Thanksgiving Day
   359   // Christmas Day
 });
 
