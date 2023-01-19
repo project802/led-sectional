@@ -1,5 +1,5 @@
 # led-sectional
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1bf778051af14b99bae35fcf90b63509)](https://app.codacy.com/app/chris_66/led-sectional?utm_source=github.com&utm_medium=referral&utm_content=project802/led-sectional&utm_campaign=Badge_Grade_Dashboard)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/6d49a017b89b4e7395385a1821d93631)](https://www.codacy.com/gh/project802/led-sectional/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=project802/led-sectional&amp;utm_campaign=Badge_Grade)
 [![Build Status](https://travis-ci.com/project802/led-sectional.svg?branch=master)](https://travis-ci.com/project802/led-sectional)
 
 ## Introduction
