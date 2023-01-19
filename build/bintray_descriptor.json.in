@@ -14,7 +14,7 @@
 
     "files":
         [
-        {"includePattern": "/home/travis/arduino_build/(LED_Sectional.ino.*)", "uploadPattern": "@PACKAGE@/@VERSION@/$1", "matrixParams": {"override": 1 }} 
+        {"includePattern": "/home/travis/arduino_build/(led-sectional.ino.*)", "uploadPattern": "@PACKAGE@/@VERSION@/$1", "matrixParams": {"override": 1 }} 
         ],
     "publish": true
 }
