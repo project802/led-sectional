@@ -16,7 +16,7 @@ The World Time API is used to automatically set the time so the sectional can go
 
 ## Get Started
 * Download the Arduino IDE
-* Add support for the ESP8266 board
+* Add support for the ESP8266 board (add the URL to the board manager and install version 2.7.4. DO NOT USE 3.x as it is not compatible with FastLED)
 * Add the "ArduinoJson", "FastLED", "Adafruit Unified Sensor" and "Adafruit TS2561" libraries
 * Open the .ino project in this repository.
 * Upload the project 
