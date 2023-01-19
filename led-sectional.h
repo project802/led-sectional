@@ -18,7 +18,7 @@
 
 #define SLEEP_WE_START        23      // The hour (local) at which the sectional will sleep on weekends
 #define SLEEP_WE_END          7       // The hour (local) at which the sectional will wake up on weekends
-  
+
 const bool dayIsWeekend[] = {         // Specify which days of the week should use "weekend" hours (true) or "weekday" hours (false)
   true,   // Sunday
   false,  // Monday
