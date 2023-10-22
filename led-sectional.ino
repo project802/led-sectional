@@ -20,11 +20,11 @@
 using namespace tinyxml2;
 
 #ifndef AW_SERVER
-  #define AW_SERVER             "www.aviationweather.gov"
+  #define AW_SERVER             "aviationweather.gov"
 #endif
 
 #ifndef BASE_URI
-  #define BASE_URI              "/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
+  #define BASE_URI              "/cgi-bin/data/dataserver.php?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
 #endif
 
 const unsigned                  READ_TIMEOUT_S            = 15;
