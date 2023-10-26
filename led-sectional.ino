@@ -103,7 +103,6 @@ void loop()
 {
   static unsigned long metarLast = 0;
   static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-  static unsigned long lightningLast = 0;
 
 #ifdef SECTIONAL_DEBUG
   // Turn on the onboard LED
@@ -358,7 +357,6 @@ void loop()
 
     if( getMetars() )
     {
-      lightningLast = 0;
       
       Serial.print( "METAR request again in " );
       Serial.print( METAR_REQUEST_INTERVAL_S );
@@ -384,28 +382,32 @@ void loop()
   }
 
   // Lightning routine
-  if( (LIGHTNING_INTERVAL > 0) && (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
   {
-    std::vector<CRGB> lightning( lightningLeds.size() );
-    
-    for( unsigned i = 0; i < lightningLeds.size(); ++i )
+    static unsigned long lightningLast = 0;
+
+    if( (LIGHTNING_INTERVAL > 0) && (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
     {
-      unsigned currentLed = lightningLeds[i];
-      lightning[i] = leds[currentLed]; // temporarily store original color
-      leds[currentLed] = CRGB::White; // set to white briefly
+      std::vector<CRGB> lightning( lightningLeds.size() );
+      
+      lightningLast = millis();
+
+      for( unsigned i = 0; i < lightningLeds.size(); ++i )
+      {
+        unsigned currentLed = lightningLeds[i];
+        lightning[i] = leds[currentLed]; // temporarily store original color
+        leds[currentLed] = CRGB::White; // set to white briefly
+      }
+      FastLED.show();
+      
+      delay( 25 );
+      
+      for( unsigned i = 0; i < lightningLeds.size(); ++i )
+      {
+        unsigned currentLed = lightningLeds[i];
+        leds[currentLed] = lightning[i]; // restore original color
+      }
+      FastLED.show();
     }
-    FastLED.show();
-    
-    delay( 25 );
-    
-    for( unsigned i = 0; i < lightningLeds.size(); ++i )
-    {
-      unsigned currentLed = lightningLeds[i];
-      leds[currentLed] = lightning[i]; // restore original color
-    }
-    FastLED.show();
-    
-    lightningLast = millis() - 10;
   }
 
 #ifdef SECTIONAL_DEBUG
