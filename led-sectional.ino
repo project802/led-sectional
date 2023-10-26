@@ -27,9 +27,10 @@ using namespace tinyxml2;
   #define BASE_URI              "/cgi-bin/data/dataserver.php?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
 #endif
 
-const unsigned                  READ_TIMEOUT_S            = 15;
-const unsigned                  METAR_RETRY_INTERVAL_S    = 15;
+const unsigned                  METAR_READ_TIMEOUT_S      = 5;
+const unsigned                  METAR_RETRY_INTERVAL_S    = 1;
 const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
+const unsigned                  METAR_MAX_RETRIES         = 15;
 
 Adafruit_TSL2561_Unified        tsl                       = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
 uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
@@ -101,9 +102,6 @@ void setup()
 
 void loop()
 {
-  static unsigned long metarLast = 0;
-  static unsigned long metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-
 #ifdef SECTIONAL_DEBUG
   // Turn on the onboard LED
   digitalWrite( LED_BUILTIN, LOW );
@@ -192,9 +190,6 @@ void loop()
 #endif
       sleeping = false;
 
-      // Reset METAR timer
-      metarLast = 0;
-
       WiFi.forceSleepWake();
       WiFi.enableSTA( true );
       WiFi.mode( WIFI_STA );
@@ -213,172 +208,198 @@ void loop()
   while( 0 );
 
   // Wi-Fi routine
-  if( WiFi.status() != WL_CONNECTED )
   {
-    // By default, the ESP8266 will use the stored wifi credentials to reconnect to wifi.
-    // Only use the ones programmatically assigned here if there is a failure to connect or none set
-
-    if( WiFi.SSID().length() == 0 )
-    {
-      Serial.println( "No WiFi config found.  Starting." );
-      WiFi.mode( WIFI_STA );
-      WiFi.begin( ssid, pass );
-    }
-    
-    Serial.print( "Connecting to SSID \"" );
-    Serial.print( WiFi.SSID() );
-    Serial.print( "\"..." );
-
-    if( metarLast == 0 )
-    {
-      // Show Wi-Fi is not connected with Orange across the board if a METAR report is pending so the sectional isn't left in the dark
-      fill_solid( leds, airports.size(), CRGB::Orange );
-      FastLED.show();
-    }
-    
-    // Wait up to 1 minute for connection...
-    for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
-    {
-      Serial.write( '.' );
-      delay( 1000 );
-    }
-    
     if( WiFi.status() != WL_CONNECTED )
     {
-      Serial.println( "Failed. Will retry..." );
-      WiFi.mode( WIFI_STA );
-      WiFi.begin( ssid, pass );
-      return;
-    }
-    
-    Serial.println( "OK!" );
+      // By default, the ESP8266 will use the stored wifi credentials to reconnect to wifi.
+      // Only use the ones programmatically assigned here if there is a failure to connect or none set
 
-    if( metarLast == 0 )
-    {
-      // Show success with Purple across the board if a METAR report is pending so the sectional isn't left in the dark
+      if( WiFi.SSID().length() == 0 )
+      {
+        Serial.println( "No WiFi config found.  Starting." );
+        WiFi.mode( WIFI_STA );
+        WiFi.begin( ssid, pass );
+      }
+      
+      Serial.print( "Connecting to SSID \"" );
+      Serial.print( WiFi.SSID() );
+      Serial.print( "\"..." );
+
+      // Show Wi-Fi is not connected with Orange across the board
+      fill_solid( leds, airports.size(), CRGB::Orange );
+      FastLED.show();
+      
+      // Wait up to 1 minute for connection...
+      for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
+      {
+        Serial.write( '.' );
+        delay( 1000 );
+      }
+      
+      if( WiFi.status() != WL_CONNECTED )
+      {
+        Serial.println( "Failed. Will retry..." );
+        WiFi.mode( WIFI_STA );
+        WiFi.begin( ssid, pass );
+        return;
+      }
+      
+      Serial.println( "OK!" );
+
+      // Show success with Purple across the board
       fill_solid( leds, airports.size(), CRGB::Purple );
       FastLED.show();
     }
   }
 
   // TSL2561 sensor routine
-  static unsigned long tslLast = 0;
-  if( tslPresent && (millis() - tslLast > 5000) )
   {
-    sensors_event_t event;
-
-    tsl.getEvent( &event );
-  
-    for( unsigned i = 0; luxMap[i] != NULL; i++ )
+    static unsigned long tslLast = 0;
+    if( tslPresent && (millis() - tslLast > 5000) )
     {
-      if( event.light < luxMap[i][0] )
+      sensors_event_t event;
+
+      tsl.getEvent( &event );
+    
+      for( unsigned i = 0; luxMap[i] != NULL; i++ )
       {
-        float slope = (float)(luxMap[i][1] - luxMap[i-1][1]) / (float)(luxMap[i][0] - luxMap[i-1][0]);
-
-        float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
-
-        if( result <= (uint8_t)(~0) )
+        if( event.light < luxMap[i][0] )
         {
-          brightnessTarget = (uint8_t) result;
+          float slope = (float)(luxMap[i][1] - luxMap[i-1][1]) / (float)(luxMap[i][0] - luxMap[i-1][0]);
+
+          float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
+
+          if( result <= (uint8_t)(~0) )
+          {
+            brightnessTarget = (uint8_t) result;
+          }
+          else
+          {
+            brightnessTarget = (uint8_t)(~0);
+          }
+
+          // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
+          brightnessTarget = brightnessTarget & ~((uint8_t)1);
+
+          // Shortcut values less than 3 to 0.  It doesn't have even color representation any longer.
+          if( brightnessTarget < 3 )
+          {
+            brightnessTarget = 0;
+          }
+          
+  #ifdef SECTIONAL_DEBUG
+          Serial.print( "TSL2561: " );
+          Serial.print( event.light );
+          Serial.print( " between " );
+          Serial.print( luxMap[i-1][0] );
+          Serial.print( " and " );
+          Serial.print( luxMap[i][0] );
+          Serial.print( ", slope " );
+          Serial.print( slope );
+          Serial.print( ", reuslt " );
+          Serial.println( result );
+  #endif  
+          break;
+        }
+      }
+      
+      tslLast = millis();
+    }
+
+    if( brightnessCurrent != brightnessTarget )
+    {
+  #ifdef SECTIONAL_DEBUG
+      Serial.print( "TSL2561: current " );
+      Serial.print( brightnessCurrent );
+      Serial.print( " target " );
+      Serial.println( brightnessTarget );
+  #endif
+      int stepSize = 4;
+
+      int nextStep = brightnessCurrent;
+
+      if( brightnessCurrent < brightnessTarget )
+      {
+        nextStep += stepSize;
+
+        if( nextStep > brightnessTarget ) nextStep = brightnessTarget;
+      }
+      else
+      {
+        nextStep -= stepSize;
+
+        if( nextStep < brightnessTarget ) nextStep = brightnessTarget;
+      }
+
+      brightnessCurrent = (uint8_t) nextStep;
+      
+      FastLED.setBrightness( brightnessCurrent );
+      FastLED.show();
+    }
+  }
+
+  // METAR routine
+  {
+    typedef enum {
+      METAR_STATE_INIT,
+      METAR_STATE_FETCHING,
+      METAR_STATE_REST,
+    } eMetarState;
+
+    static unsigned long  metarLast         = 0;
+    static eMetarState    metarState        = METAR_STATE_INIT;
+    static unsigned long  metarInterval     = METAR_REQUEST_INTERVAL_S * 1000;
+    static unsigned       metarRetryCount;
+
+    switch( metarState )
+    {
+      case METAR_STATE_INIT:
+        metarState = METAR_STATE_FETCHING;
+        metarRetryCount = 0;
+        break;
+
+      case METAR_STATE_REST:
+        if( (millis() - metarLast) < metarInterval )
+        {
+          break;
+        }
+        // Intentional fall-through
+
+      case METAR_STATE_FETCHING:
+        Serial.println( "Getting METARs" );
+
+        metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
+
+        if( getMetars() )
+        {
+          metarRetryCount = 0;
+          FastLED.show();
         }
         else
         {
-          brightnessTarget = (uint8_t)(~0);
+          if( ++metarRetryCount >= METAR_MAX_RETRIES )
+          {
+            Serial.println( "Unable" );
+            fill_solid( leds, airports.size(), CRGB::Cyan );
+            FastLED.show();
+          }
+          else
+          {
+            metarInterval = METAR_RETRY_INTERVAL_S * 1000;
+          }
         }
 
-        // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
-        brightnessTarget = brightnessTarget & ~((uint8_t)1);
+        Serial.print( "METAR request again in " );
+        Serial.print( metarInterval );
+        Serial.println( "ms." );
 
-        // Shortcut values less than 3 to 0.  It doesn't have even color representation any longer.
-        if( brightnessTarget < 3 )
-        {
-          brightnessTarget = 0;
-        }
-        
-#ifdef SECTIONAL_DEBUG
-        Serial.print( "TSL2561: " );
-        Serial.print( event.light );
-        Serial.print( " between " );
-        Serial.print( luxMap[i-1][0] );
-        Serial.print( " and " );
-        Serial.print( luxMap[i][0] );
-        Serial.print( ", slope " );
-        Serial.print( slope );
-        Serial.print( ", reuslt " );
-        Serial.println( result );
-#endif  
+        metarLast = millis();
+        metarState = METAR_STATE_REST;
         break;
-      }
+
+      default:
+        metarState = METAR_STATE_INIT;
     }
-    
-    tslLast = millis();
-  }
-
-  if( brightnessCurrent != brightnessTarget )
-  {
-#ifdef SECTIONAL_DEBUG
-    Serial.print( "TSL2561: current " );
-    Serial.print( brightnessCurrent );
-    Serial.print( " target " );
-    Serial.println( brightnessTarget );
-#endif
-    int stepSize = 4;
-
-    int nextStep = brightnessCurrent;
-
-    if( brightnessCurrent < brightnessTarget )
-    {
-      nextStep += stepSize;
-
-      if( nextStep > brightnessTarget ) nextStep = brightnessTarget;
-    }
-    else
-    {
-      nextStep -= stepSize;
-
-      if( nextStep < brightnessTarget ) nextStep = brightnessTarget;
-    }
-
-    brightnessCurrent = (uint8_t) nextStep;
-    
-    FastLED.setBrightness( brightnessCurrent );
-    FastLED.show();
-  }
-
-  // Metar routine
-  if( (metarLast == 0) || (millis() - metarLast > metarInterval ) )
-  {
-#ifdef SECTIONAL_DEBUG
-    fill_gradient_RGB( leds, airports.size(), CRGB::Red, CRGB::Blue ); // Just let us know we're running
-    FastLED.show();
-#endif
-
-    Serial.println( "Getting METARs" );
-
-    if( getMetars() )
-    {
-      
-      Serial.print( "METAR request again in " );
-      Serial.print( METAR_REQUEST_INTERVAL_S );
-      Serial.println( " seconds." );
-      
-      metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-    }
-    else
-    {
-      // Indicate error with Cyan
-      fill_solid( leds, airports.size(), CRGB::Cyan );
-
-      Serial.print( "METAR fetch failed.  Retry in " );
-      Serial.print( METAR_RETRY_INTERVAL_S );
-      Serial.println( " seconds." );
-      
-      metarInterval = METAR_RETRY_INTERVAL_S * 1000;
-    }
-
-    FastLED.show();
-
-    metarLast = millis();
   }
 
   // Lightning routine
@@ -568,7 +589,7 @@ bool getMetars()
   unsigned long timeNow = millis();
   while( !client.available() )
   {
-    if( millis() - timeNow > (READ_TIMEOUT_S  * 1000) )
+    if( millis() - timeNow > (METAR_READ_TIMEOUT_S  * 1000) )
     {
       // Timeout
       break;
