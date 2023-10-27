@@ -382,6 +382,7 @@ void loop()
             Serial.println( "Unable" );
             fill_solid( leds, airports.size(), CRGB::Cyan );
             FastLED.show();
+            metarRetryCount = 0;
           }
           else
           {
