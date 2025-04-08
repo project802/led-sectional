@@ -88,7 +88,14 @@ void displayFlightConditions( void )
 
     if( flightCategoryColors.find(flightCategory) != flightCategoryColors.end() )
     {
-      flightCategoryColor = flightCategoryColors[flightCategory];
+      if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
+      {
+        flightCategoryColor = yellow;
+      }
+      else
+      {
+        flightCategoryColor = flightCategoryColors[flightCategory];
+      }
     }
     else
     {
@@ -115,6 +122,8 @@ bool getMetars( void )
     // Reset flight category
     it->second.flightCategory = "";
     it->second.lightning = false;
+    it->second.windSpeed = 0;
+    it->second.windGust = 0;
 
     // Build up URL
     if( it != airports.begin() )
@@ -156,6 +165,8 @@ bool getMetars( void )
   filter["properties"]["id"] = true;
   filter["properties"]["fltcat"] = true;
   filter["properties"]["rawOb"] = true;
+  filter["properties"]["wspd"] = true;
+  filter["properties"]["wgst"] = true;
 
   // Deserialize in chunks since the entire http response cannot be kept in one big buffer
   do {
@@ -172,13 +183,18 @@ bool getMetars( void )
     String airport = doc["properties"]["id"];
     String flightCategory = doc["properties"]["fltcat"];
     String rawOb = doc["properties"]["rawOb"];
+    unsigned windSpeed = doc["properties"]["wspd"];
+    unsigned windGust = doc["properties"]["wgst"];
 
     // Set the flight category and let the LED color mapping be done elsewhere
     airports[airport].flightCategory = flightCategory;
     airports[airport].lightning = (rawOb.indexOf("TS") != -1);
+    airports[airport].windSpeed = windSpeed;
+    airports[airport].windGust = windGust;
 
 #ifdef SECTIONAL_DEBUG
     Serial.println( airport + " " + flightCategory );
+    Serial.println( airport + " " + flightCategory + " " + windSpeed + "G" + windGust );
 #endif
 
     yield();
