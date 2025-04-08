@@ -6,14 +6,13 @@
 
 #include "led-sectional.h"
 
-#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
-
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_TSL2561_U.h>
 #include <ArduinoJson.h>
+#include <NeoPixelBus.h>
 #include "WorldTimeAPI.h"
 
 #ifndef AW_SERVER
@@ -33,6 +32,11 @@ Adafruit_TSL2561_Unified        tsl                       = Adafruit_TSL2561_Uni
 uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
 uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
 bool                            tslPresent                = false;
+
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledstrip(NUM_AIRPORTS);
+
+RgbColor orange( 255, 128, 0   );
+RgbColor purple( 255,   0, 255 );
 
 void setup()
 {
@@ -55,11 +59,13 @@ void setup()
   WiFi.mode( WIFI_STA );
   WiFi.begin( ssid, pass );  
 
-  // Init LEDs
-
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
+
+  // Init airport LEDs to off
+  ledstrip.Begin();
+  ledstrip.Show();
 
   if( !tsl.begin() )
   {
@@ -284,8 +290,9 @@ void loop()
       Serial.print( "\"..." );
 
       // Show Wi-Fi is not connected with Orange across the board
-      // [todo]
-      
+      ledstrip.ClearTo( orange );
+      ledstrip.Show();
+
       // Wait up to 1 minute for connection...
       for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
       {
@@ -304,7 +311,8 @@ void loop()
       Serial.println( "OK!" );
 
       // Show success with Purple across the board
-      // [todo]
+      ledstrip.ClearTo( purple );
+      ledstrip.Show();
     }
   }
 

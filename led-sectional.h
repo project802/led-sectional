@@ -55,13 +55,11 @@ const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
   { 65536,  128 }                     // REQUIRED index of 65536
 };
 
-#define LED_DATA_PIN          4
-#define LED_TYPE              WS2812B
-#define COLOR_ORDER           GRB
 #define BRIGHTNESS_DEFAULT    32      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
 
 const char ssid[] = "CHANGE-ME";      // your network SSID (name)
 const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)
+#define NUM_AIRPORTS          21
 
 std::vector<String> airports({
   "KJFK", // 1
