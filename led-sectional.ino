@@ -497,10 +497,10 @@ void loop()
   {
     static unsigned long lightningLast = 0;
 
-    bool haveLightning = false;
-
     if( (LIGHTNING_INTERVAL > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
     {
+      bool haveLightning = false;
+      
       lightningLast = millis();
 
       for( const auto& pair : airports )
