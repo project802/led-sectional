@@ -16,9 +16,10 @@ The World Time API is used to automatically set the time so the sectional can go
 
 ## Get Started
 * Download the Arduino IDE
-* Add support for the ESP8266 board (add the URL to the board manager and install version 2.7.4. DO NOT USE 3.x as it is not compatible with FastLED)
-* Add the "ArduinoJson", "FastLED", "Adafruit Unified Sensor" and "Adafruit TS2561" libraries
+* Add support for the ESP8266 board (add the URL to the board manager and install version 3.1.2)
+* Add the "ArduinoJson" (7.3.1), "NeoPixelBus" (2.8.3), "Adafruit Unified Sensor" (1.1.15), and "Adafruit TS2561" (1.1.2) libraries
 * Open the .ino project in this repository.
+* Set your Wi-Fi credentials in the led_sectional.h file
 * Upload the project 
 
 If you have a successful upload, you can get started with your customizations and hardware installation.
@@ -26,7 +27,7 @@ If you have a successful upload, you can get started with your customizations an
 ## NodeMCU Wiring Configuration
 * WS2812 
   * +5V to a supply such as the VIN pin
-  * Data pin (DIN) to D4
+  * Data pin (DIN) to D4 (GPI02)
   * GND to GND
   
 * TSL2561 
