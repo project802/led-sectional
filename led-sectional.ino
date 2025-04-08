@@ -183,6 +183,8 @@ bool getMetars( void )
 #ifdef SECTIONAL_DEBUG
     Serial.println( airport + " " + flightCategory );
 #endif
+
+    yield();
   } while( client.findUntil(",", "]") );
 
   return true;
@@ -477,6 +479,7 @@ void loop()
 
       default:
         metarState = METAR_STATE_INIT;
+        break;
     }
   }
 
