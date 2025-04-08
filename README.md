@@ -1,5 +1,7 @@
 # led-sectional
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/6d49a017b89b4e7395385a1821d93631)](https://app.codacy.com/gh/project802/led-sectional/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+
 ## 2025 Refactor
 * Use latest aviationweather.gov API
 * Upgrade to esp8266 board support version 3.1.2
