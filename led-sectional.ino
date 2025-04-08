@@ -81,8 +81,6 @@ void setup()
 
 void displayFlightConditions( void )
 {
-  unsigned pixel = 0;
-
   for( const auto& pair : airports )
   {
     String flightCategory = pair.second.flightCategory;
@@ -97,8 +95,7 @@ void displayFlightConditions( void )
       Serial.println( "Unable to find color for flight category " + flightCategory );
     }
 
-    ledStrip.SetPixelColor( pixel, flightCategoryColor.Dim(brightnessCurrent) );
-    ++pixel;
+    ledStrip.SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
   }
 
   ledStrip.Show();
@@ -173,19 +170,10 @@ bool getMetars( void )
 
     String airport = doc["properties"]["id"];
     String flightCategory = doc["properties"]["fltcat"];
+    String rawOb = doc["properties"]["rawOb"];
 
     // Set the flight category and let the LED color mapping be done elsewhere
-    auto airportIt = std::find_if( airports.begin(), airports.end(),
-      [&airport](const std::pair<String, AirportConditions>& element){ return element.first == airport;} );
-
-    if( airportIt != airports.end() )
-    {
-      airportIt->second.flightCategory = flightCategory;
-    }
-    else
-    {
-      Serial.println( "ERROR: Unable to locate " + airport + " in local list of airports." );
-    }
+    airports[airport].flightCategory = flightCategory;
 
 #ifdef SECTIONAL_DEBUG
     Serial.println( airport + " " + flightCategory );
