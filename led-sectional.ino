@@ -115,6 +115,10 @@ bool getMetars( void )
 
   for( auto it = airports.begin(); it != airports.end(); ++it )
   {
+    // Reset flight category
+    it->second.flightCategory = "";
+
+    // Build up URL
     if( it != airports.begin() )
       url = url + ",";
 
@@ -144,6 +148,7 @@ bool getMetars( void )
     return false;
   }
 
+  // fast forward to the array of airport results
   client.find( "\"features\":[" );
 
   JsonDocument doc;
@@ -169,7 +174,11 @@ bool getMetars( void )
     String airport = doc["properties"]["id"];
     String flightCategory = doc["properties"]["fltcat"];
 
-    airports[airport].flightCategory = flightCategory;
+    // Set the flight category and then walk away as soon as possible
+    auto airportIt = std::find_if( airports.begin(), airports.end(),
+      [&airport](const std::pair<String, AirportConditions>& element){ return element.first == airport;} );
+
+    airportIt->second.flightCategory = flightCategory;
 
 #ifdef SECTIONAL_DEBUG
     Serial.println( airport + " " + flightCategory );

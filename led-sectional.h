@@ -70,7 +70,7 @@ struct AirportConditions
 
 #define NUM_AIRPORTS          22
 
-std::map<String, AirportConditions> airports = {
+std::vector<std::pair<String, AirportConditions>> airports = {
   { "KJFK", {} },  // 1
   { "KHPN", {} },  // 2
   { "KPOU", {} },  // 3
