@@ -114,6 +114,7 @@ bool getMetars( void )
   {
     // Reset flight category
     it->second.flightCategory = "";
+    it->second.lightning = false;
 
     // Build up URL
     if( it != airports.begin() )
@@ -174,6 +175,7 @@ bool getMetars( void )
 
     // Set the flight category and let the LED color mapping be done elsewhere
     airports[airport].flightCategory = flightCategory;
+    airports[airport].lightning = (rawOb.indexOf("TS") != -1);
 
 #ifdef SECTIONAL_DEBUG
     Serial.println( airport + " " + flightCategory );
@@ -481,7 +483,31 @@ void loop()
 
   // Lightning routine
   {
-    
+    static unsigned long lightningLast = 0;
+
+    bool haveLightning = false;
+
+    if( (LIGHTNING_INTERVAL > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
+    {
+      lightningLast = millis();
+
+      for( const auto& pair : airports )
+      {
+        if( pair.second.lightning )
+        {
+          // Override pixel color with white directly
+          ledStrip.SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent) );
+          haveLightning = true;
+        }
+      }
+
+      if( haveLightning )
+      {
+        ledStrip.Show();
+        delay( 25 );
+        displayFlightConditions();
+      }
+    }
   }
 
   // All done.  Yeild to other processes.
