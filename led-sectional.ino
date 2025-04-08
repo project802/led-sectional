@@ -259,6 +259,8 @@ void loop()
 
       // Turn off METAR LEDs
       // [todo]
+      ledStrip.ClearTo( black );
+      ledStrip.Show();
 
       // Don't use the disconnect() function which changes the config, clearing the SSID & password
       WiFi.mode( WIFI_OFF );
