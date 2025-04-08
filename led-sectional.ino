@@ -513,7 +513,7 @@ void loop()
         if( pair.second.lightning )
         {
           // Override pixel color with white directly
-          ledStrip.SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent) );
+          ledStrip.SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent * 2) );
           haveLightning = true;
         }
       }
