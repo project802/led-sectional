@@ -33,10 +33,7 @@ uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
 uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
 bool                            tslPresent                = false;
 
-NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledstrip(NUM_AIRPORTS);
-
-RgbColor orange( 255, 128, 0   );
-RgbColor purple( 255,   0, 255 );
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip( NUM_AIRPORTS );
 
 void setup()
 {
@@ -64,8 +61,8 @@ void setup()
   digitalWrite( LED_BUILTIN, HIGH );
 
   // Init airport LEDs to off
-  ledstrip.Begin();
-  ledstrip.Show();
+  ledStrip.Begin();
+  ledStrip.Show();
 
   if( !tsl.begin() )
   {
@@ -82,12 +79,32 @@ void setup()
   }
 }
 
-bool getMetars( void )
+void displayFlightConditions( void )
 {
-  return true;
+  unsigned pixel = 0;
+
+  for( const auto& pair : airports )
+  {
+    String flightCategory = pair.second.flightCategory;
+    RgbColor flightCategoryColor = black;
+
+    if( flightCategoryColors.find(flightCategory) != flightCategoryColors.end() )
+    {
+      flightCategoryColor = flightCategoryColors[flightCategory];
+    }
+    else
+    {
+      Serial.println( "Unable to find color for flight category " + flightCategory );
+    }
+
+    ledStrip.SetPixelColor( pixel, flightCategoryColor );
+    ++pixel;
+  }
+
+  ledStrip.Show();
 }
 
-bool getMetars2( void )
+bool getMetars( void )
 {
   WiFiClientSecure client;
   HTTPClient httpClient;
@@ -96,17 +113,12 @@ bool getMetars2( void )
 
   String url = String( "https://" ) + AW_SERVER + "/" + BASE_URI;
 
-  for( unsigned i = 0; i < (airports.size()); i++ )
+  for( auto it = airports.begin(); it != airports.end(); ++it )
   {
-    String airport = airports[i];
-
-    if( airport != "NULL" && airport != "VFR" && airport != "MVFR" && airport != "WVFR" && airport != "IFR" && airport != "LIFR" )
-    {
-      url = url + airport;
-    }
-
-    if( i < (airports.size()-1) )
+    if( it != airports.begin() )
       url = url + ",";
+
+    url = url + it->first;
   }
 
 #ifdef SECTIONAL_DEBUG
@@ -155,10 +167,12 @@ bool getMetars2( void )
     }
 
     String airport = doc["properties"]["id"];
-    String category = doc["properties"]["fltcat"];
+    String flightCategory = doc["properties"]["fltcat"];
+
+    airports[airport].flightCategory = flightCategory;
 
 #ifdef SECTIONAL_DEBUG
-    Serial.println( airport + " " + category );
+    Serial.println( airport + " " + flightCategory );
 #endif
   } while( client.findUntil(",", "]") );
 
@@ -290,8 +304,8 @@ void loop()
       Serial.print( "\"..." );
 
       // Show Wi-Fi is not connected with Orange across the board
-      ledstrip.ClearTo( orange );
-      ledstrip.Show();
+      ledStrip.ClearTo( orange );
+      ledStrip.Show();
 
       // Wait up to 1 minute for connection...
       for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
@@ -311,8 +325,8 @@ void loop()
       Serial.println( "OK!" );
 
       // Show success with Purple across the board
-      ledstrip.ClearTo( purple );
-      ledstrip.Show();
+      ledStrip.ClearTo( purple );
+      ledStrip.Show();
     }
   }
 
@@ -436,6 +450,7 @@ void loop()
         if( getMetars() )
         {
           metarRetryCount = 0;
+          displayFlightConditions();
         }
         else
         {

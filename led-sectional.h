@@ -8,6 +8,9 @@
 #ifndef LED_SECTIONAL_H
 #define LED_SECTIONAL_H
 
+#include <NeoPixelBus.h>
+#include <map>
+
 #define LIGHTNING_INTERVAL    5       // How often the lightning animation will run, in seconds.  0 to disable.
 
 #define WIND_THRESHOLD        25      // Wind/gust speed, above which, when VFR will change from green to yellow.  Set high to disable.
@@ -44,6 +47,7 @@ std::vector<unsigned> holidays({
 });
 
 #define TSL2561_ADDRESS       TSL2561_ADDR_FLOAT
+#define BRIGHTNESS_DEFAULT    32      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
 
 const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
   // Lux,   Intensity
@@ -55,35 +59,57 @@ const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
   { 65536,  128 }                     // REQUIRED index of 65536
 };
 
-#define BRIGHTNESS_DEFAULT    32      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
 
 const char ssid[] = "CHANGE-ME";      // your network SSID (name)
 const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)
-#define NUM_AIRPORTS          21
+struct AirportConditions
+{
+  String  flightCategory;
+  bool    lightning;
+};
 
-std::vector<String> airports({
-  "KJFK", // 1
-  "KHPN", // 2
-  "KPOU", // 3
-  "KALB", // 4
-  "KPSF", // 5
-  "KOXC", // 6
-  "KISP", // 7
-  "KHTO", // 8
-  "KSNC", // 9
-  "KBAF", // 10
-  "KEEN", // 11
-  "KORH", // 12
-  "KIJD", // 13
-  "KBID", // 14
-  "KPVD", // 15
-  "KBOS", // 16
-  "KMHT", // 17
-  "KPVC", // 18
-  "KCQX", // 19
-  "KACK", // 20
-  "KMVY", // 21
-  "KFMH"  // 22
-});
+#define NUM_AIRPORTS          22
+
+std::map<String, AirportConditions> airports = {
+  { "KJFK", {} },  // 1
+  { "KHPN", {} },  // 2
+  { "KPOU", {} },  // 3
+  { "KALB", {} },  // 4
+  { "KPSF", {} },  // 5
+  { "KOXC", {} },  // 6
+  { "KISP", {} },  // 7
+  { "KHTO", {} },  // 8
+  { "KSNC", {} },  // 9
+  { "KBAF", {} },  // 10
+  { "KEEN", {} },  // 11
+  { "KORH", {} },  // 12
+  { "KIJD", {} },  // 13
+  { "KBID", {} },  // 14
+  { "KPVD", {} },  // 15
+  { "KBOS", {} },  // 16
+  { "KMHT", {} },  // 17
+  { "KPVC", {} },  // 18
+  { "KCQX", {} },  // 19
+  { "KACK", {} },  // 20
+  { "KMVY", {} },  // 21
+  { "KFMH", {} },  // 22
+};
+
+RgbColor orange ( 255, 128,   0 );
+RgbColor magenta( 255,   0, 255 );
+RgbColor purple ( 160,  32, 240 );
+RgbColor red    ( 255,   0,   0 );
+RgbColor blue   (   0,   0, 255 );
+RgbColor green  (   0, 255,   0 );
+RgbColor white  ( 255, 255, 255 );
+RgbColor black  (   0,   0,   0 );
+
+std::map<String, RgbColor> flightCategoryColors = {
+  { "LIFR", magenta },
+  { "IFR",  red },
+  { "MVFR", blue },
+  { "VFR",  green },
+  { "",     white }
+};
 
 #endif
