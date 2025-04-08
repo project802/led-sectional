@@ -113,7 +113,7 @@ std::map<String, RgbColor> flightCategoryColors = {
   { "IFR",  red },
   { "MVFR", blue },
   { "VFR",  green },
-  { "",     white }
+  { "",     black }
 };
 
 #endif
