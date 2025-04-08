@@ -1,6 +1,4 @@
 # led-sectional
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/6d49a017b89b4e7395385a1821d93631)](https://www.codacy.com/gh/project802/led-sectional/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=project802/led-sectional&amp;utm_campaign=Badge_Grade)
-[![Build Status](https://travis-ci.com/project802/led-sectional.svg?branch=master)](https://travis-ci.com/project802/led-sectional)
 
 ## Introduction
 Display flight conditions on a sectional chart using LEDs.  This project is based on the Arduino framework using an ESP8266 NodeMCU.  Originally based on code from [WKHarmon](https://github.com/WKHarmon/led-sectional) and expanded with some additional features.
