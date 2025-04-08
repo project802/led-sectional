@@ -16,11 +16,11 @@
 #define WIND_THRESHOLD        25      // Wind/gust speed, above which, when VFR will change from green to yellow.  Set high to disable.
 
 //#define TIMEZONE            "America/Los_Angeles"  // Specify a time zone if the automatic method doesn't work.  For a list of valid timezones, see http://worldtimeapi.org/timezones
-#define SLEEP_WD_START        22      // The hour (local) at which the sectional will sleep on weekdays
+#define SLEEP_WD_START        21      // The hour (local) at which the sectional will sleep on weekdays
 #define SLEEP_WD_END          7       // The hour (local) at which the sectional will wake up on weekdays
 
-#define SLEEP_WE_START        23      // The hour (local) at which the sectional will sleep on weekends
-#define SLEEP_WE_END          7       // The hour (local) at which the sectional will wake up on weekends
+#define SLEEP_WE_START        22      // The hour (local) at which the sectional will sleep on weekends or holidays
+#define SLEEP_WE_END          8       // The hour (local) at which the sectional will wake up on weekends or holidays
 
 const bool dayIsWeekend[] = {         // Specify which days of the week should use "weekend" hours (true) or "weekday" hours (false)
   true,   // Sunday
@@ -32,17 +32,17 @@ const bool dayIsWeekend[] = {         // Specify which days of the week should u
   true    // Saturday
 };
 
-// List of US 2023 federal holidays as day of the year
+// List of US 2025 federal holidays as day of the year
 std::vector<unsigned> holidays({
-  2,    // NY
-  16,   // MLK Jr Birthday
-  51,   // Washington's Birthday
-  149,  // Memorial Day
+  1,    // NY
+  20,   // MLK Jr Birthday
+  48,   // Washington's Birthday
+  146,  // Memorial Day
   185,  // Independence Day
-  247,  // Labor Day
-  282,  // Columbus Day
-  314,  // Verterans Day
-  327,  // Thanksgiving Day
+  244,  // Labor Day
+  286,  // Columbus Day
+  315,  // Verterans Day
+  331,  // Thanksgiving Day
   359   // Christmas Day
 });
 

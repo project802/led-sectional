@@ -242,12 +242,7 @@ void loop()
     int hourNow = wtAPI.getHour();
     int dayNow = wtAPI.getDayOfWeek();
 
-    bool dayIsHoliday = false;
-    for( unsigned i = 0; i < holidays.size(); i++ )
-    {
-      if( holidays[i] == wtAPI.getDayOfYear() )
-        dayIsHoliday = true;
-    }
+    bool dayIsHoliday = (std::find(holidays.begin(), holidays.end(), wtAPI.getDayOfYear()) != holidays.end());
     
     bool shouldBeAsleep = false;
     
