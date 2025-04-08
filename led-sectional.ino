@@ -451,14 +451,12 @@ void loop()
         if( getMetars() )
         {
           metarRetryCount = 0;
-          displayFlightConditions();
         }
         else
         {
           if( ++metarRetryCount >= METAR_MAX_RETRIES )
           {
             Serial.println( "Unable" );
-            // [todo] leds indicate error
             metarRetryCount = 0;
           }
           else
@@ -466,6 +464,8 @@ void loop()
             metarInterval = METAR_RETRY_INTERVAL_S * 1000;
           }
         }
+
+        displayFlightConditions();
 
         Serial.print( "METAR request again in " );
         Serial.print( metarInterval );
