@@ -67,6 +67,8 @@ struct AirportConditions
   unsigned pixel;
   String   flightCategory;
   bool     lightning;
+  unsigned windSpeed;
+  unsigned windGust;
 };
 
 #define NUM_AIRPORTS          22
@@ -104,6 +106,7 @@ RgbColor blue   (   0,   0, 255 );
 RgbColor green  (   0, 255,   0 );
 RgbColor white  ( 255, 255, 255 );
 RgbColor black  (   0,   0,   0 );
+RgbColor yellow ( 255, 255,   0 );
 
 std::map<String, RgbColor> flightCategoryColors = {
   { "LIFR", magenta },
