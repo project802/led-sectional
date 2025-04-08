@@ -265,7 +265,6 @@ void loop()
       sleeping = true;
 
       // Turn off METAR LEDs
-      // [todo]
       ledStrip.ClearTo( black );
       ledStrip.Show();
 
@@ -423,7 +422,6 @@ void loop()
 
       brightnessCurrent = (uint8_t) nextStep;
       
-      // [todo] set brightness
       displayFlightConditions();
     }
   }
