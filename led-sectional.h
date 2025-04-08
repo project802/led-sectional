@@ -17,7 +17,7 @@
 
 //#define TIMEZONE            "America/Los_Angeles"  // Specify a time zone if the automatic method doesn't work.  For a list of valid timezones, see http://worldtimeapi.org/timezones
 #define SLEEP_WD_START        22      // The hour (local) at which the sectional will sleep on weekdays
-#define SLEEP_WD_END          17      // The hour (local) at which the sectional will wake up on weekdays
+#define SLEEP_WD_END          7       // The hour (local) at which the sectional will wake up on weekdays
 
 #define SLEEP_WE_START        23      // The hour (local) at which the sectional will sleep on weekends
 #define SLEEP_WE_END          7       // The hour (local) at which the sectional will wake up on weekends
