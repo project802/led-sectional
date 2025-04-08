@@ -1,5 +1,11 @@
 # led-sectional
 
+## 2025 Refactor
+* Use latest aviationweather.gov API
+* Upgrade to esp8266 board support version 3.1.2
+* FastLED broke in esp8266 3.x so swap it out for NeoPixelBus.
+* Removed tinyXML now that the API gives us Json
+
 ## Introduction
 Display flight conditions on a sectional chart using LEDs.  This project is based on the Arduino framework using an ESP8266 NodeMCU.  Originally based on code from [WKHarmon](https://github.com/WKHarmon/led-sectional) and expanded with some additional features.
 
@@ -33,3 +39,12 @@ If you have a successful upload, you can get started with your customizations an
   * GND to GND
   * SDA to D2
   * SCL to D1
+
+## Wishlist
+I'd like to not use insecure SSL, but the certificate for aviationweather.gov rotates multiple times a year and that will be annoying to keep up with.
+
+An API that tells if the day is a holiday would be nice. Maybe I'll host one if I can find a way to get the dates automatically.
+
+Use WiFiManager to set the Wi-Fi credentials and do connection management instead of manually managing the state.
+
+Have simple serial port commands to stimulate various functionality for debug and testing.
