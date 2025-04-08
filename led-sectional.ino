@@ -86,6 +86,12 @@ void displayFlightConditions( void )
     String flightCategory = pair.second.flightCategory;
     RgbColor flightCategoryColor = black;
 
+#ifdef SECTIONAL_DEBUG
+    Serial.print( pair.second.pixel );
+    Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
+    Serial.println( pair.second.lightning ? "TS" : "" );
+#endif
+
     if( flightCategoryColors.find(flightCategory) != flightCategoryColors.end() )
     {
       if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
@@ -191,11 +197,6 @@ bool getMetars( void )
     airports[airport].lightning = (rawOb.indexOf("TS") != -1);
     airports[airport].windSpeed = windSpeed;
     airports[airport].windGust = windGust;
-
-#ifdef SECTIONAL_DEBUG
-    Serial.println( airport + " " + flightCategory );
-    Serial.println( airport + " " + flightCategory + " " + windSpeed + "G" + windGust );
-#endif
 
     yield();
   } while( client.findUntil(",", "]") );
@@ -382,7 +383,7 @@ void loop()
             brightnessTarget = 0;
           }
           
-  #ifdef SECTIONAL_DEBUG
+#ifdef SECTIONAL_DEBUG
           Serial.print( "TSL2561: " );
           Serial.print( event.light );
           Serial.print( " between " );
@@ -393,7 +394,7 @@ void loop()
           Serial.print( slope );
           Serial.print( ", reuslt " );
           Serial.println( result );
-  #endif  
+#endif  
           break;
         }
       }
@@ -403,12 +404,12 @@ void loop()
 
     if( brightnessCurrent != brightnessTarget )
     {
-  #ifdef SECTIONAL_DEBUG
+#ifdef SECTIONAL_DEBUG
       Serial.print( "TSL2561: current " );
       Serial.print( brightnessCurrent );
       Serial.print( " target " );
       Serial.println( brightnessTarget );
-  #endif
+#endif
       int stepSize = 4;
 
       int nextStep = brightnessCurrent;
