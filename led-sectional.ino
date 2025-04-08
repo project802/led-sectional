@@ -181,11 +181,6 @@ bool getMetars( void )
 
 void loop()
 {
-#ifdef SECTIONAL_DEBUG
-  // Turn on the onboard LED
-  digitalWrite( LED_BUILTIN, LOW );
-#endif
-
   // Sleep routine
   do
   {
@@ -276,9 +271,6 @@ void loop()
 
     if( sleeping )
     {
-#ifdef SECTIONAL_DEBUG
-      digitalWrite( LED_BUILTIN, HIGH );
-#endif
       delay( 60 * 1000 );
       return;
     }
@@ -483,10 +475,6 @@ void loop()
   {
     
   }
-
-#ifdef SECTIONAL_DEBUG
-  digitalWrite( LED_BUILTIN, HIGH );
-#endif
 
   // All done.  Yeild to other processes.
   delay( 1000 );
