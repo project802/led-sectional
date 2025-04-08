@@ -174,11 +174,18 @@ bool getMetars( void )
     String airport = doc["properties"]["id"];
     String flightCategory = doc["properties"]["fltcat"];
 
-    // Set the flight category and then walk away as soon as possible
+    // Set the flight category and let the LED color mapping be done elsewhere
     auto airportIt = std::find_if( airports.begin(), airports.end(),
       [&airport](const std::pair<String, AirportConditions>& element){ return element.first == airport;} );
 
-    airportIt->second.flightCategory = flightCategory;
+    if( airportIt != airports.end() )
+    {
+      airportIt->second.flightCategory = flightCategory;
+    }
+    else
+    {
+      Serial.println( "ERROR: Unable to locate " + airport + " in local list of airports." );
+    }
 
 #ifdef SECTIONAL_DEBUG
     Serial.println( airport + " " + flightCategory );
