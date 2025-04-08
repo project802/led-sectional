@@ -78,7 +78,7 @@ std::vector<std::pair<String, AirportConditions>> airports = {
   { "KPSF", {} },  // 5
   { "KOXC", {} },  // 6
   { "KISP", {} },  // 7
-  { "KHTO", {} },  // 8
+  { "KJPX", {} },  // 8
   { "KSNC", {} },  // 9
   { "KBAF", {} },  // 10
   { "KEEN", {} },  // 11
