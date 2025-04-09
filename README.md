@@ -19,7 +19,7 @@ Data is downloaded from the United States' National Weather Service using the Da
 Using a TSL2561 light sensor from Adafruit, dynamically control the brightness of the LEDs based on the ambient light.  This improves legibility and conserves power across high and low-lux situations.  For example, turn the LEDs off when the room is dark and scale them up to full brightness when under direct sunlight.
 
 ### Go To Sleep, Weekend and Holiday Behavior
-The World Time API is used to automatically set the time so the sectional can go to sleep and wake up at pre-programmed times for either weekdays or weekends.  When sleeping, the LEDs are turned off and METAR queries pause.  This is to be good citizens to the TDS API and conserve power.  US federal holidays are treated as weekends.
+The World Time API is used to automatically set the time so the sectional can go to sleep and wake up at pre-programmed times for either weekdays or weekends.  When sleeping, the LEDs are turned off and METAR queries pause.  This is to be good citizens to the Data API and conserve power.  US federal holidays are treated as weekends.
 
 ## Get Started
 * Download the Arduino IDE
@@ -41,7 +41,7 @@ If you have a successful upload, you can get started with your customizations an
   * +5V to a supply such as the VIN pin
   * Data pin (DIN) to D4 (GPI02)
   * GND to GND
-  
+
 * TSL2561 
   * VIN to +3.3V
   * GND to GND
