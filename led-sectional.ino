@@ -174,15 +174,40 @@ bool getMetars( void )
   filter["properties"]["wspd"] = true;
   filter["properties"]["wgst"] = true;
 
+  bool lastFeature = false;
+  unsigned long metarStart = millis();
+
   // Deserialize in chunks since the entire http response cannot be kept in one big buffer
   do {
-    DeserializationError error = deserializeJson( doc, client, DeserializationOption::Filter(filter) );
+    unsigned long now = millis();
+    String json = "";
+    
+    do
+    {
+      json += client.readStringUntil( ',' ) + ",";
+
+      // Each non-last feature
+      if( json.endsWith("}},") )
+      {
+        break;
+      }
+      // Last feature
+      else if( json.endsWith("}}],") )
+      {
+        lastFeature = true;
+        break;
+      }
+    }
+    while( (millis() - now) < (METAR_READ_TIMEOUT_S * 1000) );
+
+    DeserializationError error = deserializeJson( doc, json, DeserializationOption::Filter(filter) );
 
     if( error )
     {
       Serial.print( "deserializeJson() failed: " );
       Serial.println( error.f_str() );
-
+      Serial.println( json );
+      
       return false;
     }
 
@@ -199,9 +224,15 @@ bool getMetars( void )
     airports[airport].windGust = windGust;
 
     yield();
-  } while( client.findUntil(",", "]") );
 
-  return true;
+    if( (millis() - metarStart) > (METAR_READ_TIMEOUT_S * 1000) )
+    {
+      Serial.println( "METAR read timeout" );
+      break;
+    }
+  } while( !lastFeature );
+
+  return lastFeature;
 }
 
 void loop()
