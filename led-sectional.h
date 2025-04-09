@@ -59,9 +59,9 @@ const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
   { 65536,  128 }                     // REQUIRED index of 65536
 };
 
-
 const char ssid[] = "CHANGE-ME";      // your network SSID (name)
 const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)
+
 struct AirportConditions
 {
   unsigned pixel;
