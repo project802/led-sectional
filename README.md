@@ -8,6 +8,7 @@
 * FastLED broke in esp8266 3.x so swap it out for NeoPixelBus.
 * Removed tinyXML now that the API gives us Json
 * Remove manual HTTP request management in favor of HTTPClient and ChunkedDecodingStream for interoperability
+* Ensure compatibility with the latest revisions of all library dependencies
 
 ## Introduction
 Display flight conditions on a sectional chart using LEDs.  This project is based on the Arduino framework using an ESP8266 NodeMCU.  Originally based on code from [WKHarmon](https://github.com/WKHarmon/led-sectional) and expanded with some additional features.
