@@ -477,7 +477,10 @@ void loop()
           }
         }
 
-        displayFlightConditions();
+        if( metarRetryCount == 0 )
+        {
+          displayFlightConditions();
+        }
 
         Serial.print( "METAR request again in " );
         Serial.print( metarInterval );
@@ -500,7 +503,7 @@ void loop()
     if( (LIGHTNING_INTERVAL > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
     {
       bool haveLightning = false;
-      
+
       lightningLast = millis();
 
       for( const auto& pair : airports )
