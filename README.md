@@ -12,7 +12,7 @@
 Display flight conditions on a sectional chart using LEDs.  This project is based on the Arduino framework using an ESP8266 NodeMCU.  Originally based on code from [WKHarmon](https://github.com/WKHarmon/led-sectional) and expanded with some additional features.
 
 ### METARs
-Data is downloaded from the United States' National Weather Service using the TDS API on aviationweather.gov and displayed on a series of individually addressable LEDs (WS2812B).
+Data is downloaded from the United States' National Weather Service using the Data API on aviationweather.gov (https://aviationweather.gov/data/api/) and displayed on a series of individually addressable LEDs (WS2812B).
 
 ### Dynamic LED brightness
 Using a TSL2561 light sensor from Adafruit, dynamically control the brightness of the LEDs based on the ambient light.  This improves legibility and conserves power across high and low-lux situations.  For example, turn the LEDs off when the room is dark and scale them up to full brightness when under direct sunlight.
