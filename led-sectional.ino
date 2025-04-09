@@ -105,7 +105,7 @@ void displayFlightConditions( void )
     }
     else
     {
-      Serial.println( "Unable to find color for flight category " + flightCategory );
+      Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
     }
 
     ledStrip.SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
