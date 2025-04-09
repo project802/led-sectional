@@ -6,29 +6,26 @@
 
 #include "led-sectional.h"
 
-#define FASTLED_ESP8266_NODEMCU_PIN_ORDER
-
 #include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <FastLED.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_TSL2561_U.h>
-#include <vector>
-#include "tinyxml2.h"
+#include <ArduinoJson.h>
+#include <NeoPixelBus.h>
+#include <StreamUtils.h>
 #include "WorldTimeAPI.h"
-
-using namespace tinyxml2;
 
 #ifndef AW_SERVER
   #define AW_SERVER             "aviationweather.gov"
 #endif
 
 #ifndef BASE_URI
-  #define BASE_URI              "/cgi-bin/data/dataserver.php?dataSource=metars&requestType=retrieve&format=xml&hoursBeforeNow=3&mostRecentForEachStation=true&stationString="
+  #define BASE_URI              "api/data/metar?format=geojson&taf=false&ids="
 #endif
 
 const unsigned                  METAR_READ_TIMEOUT_S      = 5;
-const unsigned                  METAR_RETRY_INTERVAL_S    = 1;
+const unsigned                  METAR_RETRY_INTERVAL_S    = 5;
 const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
 const unsigned                  METAR_MAX_RETRIES         = 15;
 
@@ -37,9 +34,7 @@ uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
 uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
 bool                            tslPresent                = false;
 
-CRGB                            *leds;
-std::vector<unsigned short int> lightningLeds;
-
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> *ledStrip = NULL;
 
 void setup()
 {
@@ -62,16 +57,14 @@ void setup()
   WiFi.mode( WIFI_STA );
   WiFi.begin( ssid, pass );  
 
-  leds = (CRGB *) malloc( sizeof(CRGB) * airports.size() );
-  if( leds == NULL )
-  {
-    Serial.println( "Unable to allocate memory for leds!" );
-    while(1) delay(1);
-  }
-  
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
   digitalWrite( LED_BUILTIN, HIGH );
+
+  // Init airport LEDs to off
+  ledStrip = new NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod>( airports.size() );
+  ledStrip->Begin();
+  ledStrip->Show();
 
   if( !tsl.begin() )
   {
@@ -86,27 +79,168 @@ void setup()
     tsl.enableAutoRange( true );
     tsl.setIntegrationTime( TSL2561_INTEGRATIONTIME_402MS );
   }
+}
 
-  // Initialize METAR LEDs
-  fill_solid( leds, airports.size(), CRGB::Black );
-  FastLED.addLeds<LED_TYPE, LED_DATA_PIN, COLOR_ORDER>( leds, airports.size() ).setCorrection( TypicalLEDStrip );
-  FastLED.setBrightness( brightnessCurrent );
+void displayFlightConditions( void )
+{
+  for( const auto& pair : airports )
+  {
+    String flightCategory = pair.second.flightCategory;
+    RgbColor flightCategoryColor = black;
 
-  // Do a double 'show' to get the LEDs into a known good state.  Depending on the behavior of the
-  // data pin during boot and configuration, it can cause the first LED to be "skipped" and left in
-  // the default configuration.
-  FastLED.show();
-  FastLED.delay( 1000 );
-  FastLED.show();
+#ifdef SECTIONAL_DEBUG
+    Serial.print( pair.second.pixel );
+    Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
+    Serial.println( pair.second.lightning ? "TS" : "" );
+#endif
+
+    if( flightCategoryColors.find(flightCategory) != flightCategoryColors.end() )
+    {
+      if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
+      {
+        flightCategoryColor = yellow;
+      }
+      else
+      {
+        flightCategoryColor = flightCategoryColors[flightCategory];
+      }
+    }
+    else
+    {
+      Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
+    }
+
+    ledStrip->SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
+  }
+
+  ledStrip->Show();
+}
+
+bool getMetars( void )
+{
+  WiFiClientSecure client;
+  HTTPClient httpClient;
+
+  client.setInsecure();
+
+  String url = String( "https://" ) + AW_SERVER + "/" + BASE_URI;
+
+  for( auto it = airports.begin(); it != airports.end(); ++it )
+  {
+    // Reset flight category
+    it->second.flightCategory = "";
+    it->second.lightning = false;
+    it->second.windSpeed = 0;
+    it->second.windGust = 0;
+
+    // Build up URL
+    if( it != airports.begin() )
+      url = url + ",";
+
+    url = url + it->first;
+  }
+
+#ifdef SECTIONAL_DEBUG
+  Serial.println( url );
+#endif
+
+  Serial.print( "Starting connection to server..." );
+  if( httpClient.begin(client, url) )
+  {
+    Serial.println( "OK" );
+  }
+  else
+  {
+    Serial.println( "Connection failed!" );
+    return false;
+  }  
+
+  int16_t responseCode = httpClient.GET();
+
+  if( responseCode != HTTP_CODE_OK )
+  {
+    Serial.println( "Error fetching METARs" );
+    return false;
+  }
+
+  ChunkDecodingStream decodedStream( httpClient.getStream() );
+
+  // fast forward to the array of airport results
+  decodedStream.find( "\"features\":[" );
+
+  JsonDocument doc;
+  JsonDocument filter;
+
+  // Filter out most of the data to not run out of heap
+  filter["properties"]["id"] = true;
+  filter["properties"]["fltcat"] = true;
+  filter["properties"]["rawOb"] = true;
+  filter["properties"]["wspd"] = true;
+  filter["properties"]["wgst"] = true;
+
+  bool lastFeature = false;
+  unsigned long metarStart = millis();
+
+  // Deserialize in chunks since the entire http response cannot be kept in one big buffer
+  do {
+    unsigned long now = millis();
+    String json = "";
+    
+    do
+    {
+      json += decodedStream.readStringUntil( ',' ) + ",";
+
+      // Each non-last feature
+      if( json.endsWith("}},") )
+      {
+        break;
+      }
+      // Last feature
+      else if( json.endsWith("}}],") )
+      {
+        lastFeature = true;
+        break;
+      }
+    }
+    while( (millis() - now) < (METAR_READ_TIMEOUT_S * 1000) );
+
+    DeserializationError error = deserializeJson( doc, json, DeserializationOption::Filter(filter) );
+
+    if( error )
+    {
+      Serial.print( "deserializeJson() failed: " );
+      Serial.println( error.f_str() );
+      Serial.println( json );
+      
+      return false;
+    }
+
+    String airport = doc["properties"]["id"];
+    String flightCategory = doc["properties"]["fltcat"];
+    String rawOb = doc["properties"]["rawOb"];
+    unsigned windSpeed = doc["properties"]["wspd"];
+    unsigned windGust = doc["properties"]["wgst"];
+
+    // Set the flight category and let the LED color mapping be done elsewhere
+    airports[airport].flightCategory = flightCategory;
+    airports[airport].lightning = (rawOb.indexOf("TS") != -1);
+    airports[airport].windSpeed = windSpeed;
+    airports[airport].windGust = windGust;
+
+    yield();
+
+    if( (millis() - metarStart) > (METAR_READ_TIMEOUT_S * 1000) )
+    {
+      Serial.println( "METAR read timeout" );
+      break;
+    }
+  } while( !lastFeature );
+
+  return lastFeature;
 }
 
 void loop()
 {
-#ifdef SECTIONAL_DEBUG
-  // Turn on the onboard LED
-  digitalWrite( LED_BUILTIN, LOW );
-#endif
-
   // Sleep routine
   do
   {
@@ -143,12 +277,7 @@ void loop()
     int hourNow = wtAPI.getHour();
     int dayNow = wtAPI.getDayOfWeek();
 
-    bool dayIsHoliday = false;
-    for( unsigned i = 0; i < holidays.size(); i++ )
-    {
-      if( holidays[i] == wtAPI.getDayOfYear() )
-        dayIsHoliday = true;
-    }
+    bool dayIsHoliday = (std::find(holidays.begin(), holidays.end(), wtAPI.getDayOfYear()) != holidays.end());
     
     bool shouldBeAsleep = false;
     
@@ -173,8 +302,8 @@ void loop()
       sleeping = true;
 
       // Turn off METAR LEDs
-      fill_solid( leds, airports.size(), CRGB::Black );
-      FastLED.show();
+      ledStrip->ClearTo( black );
+      ledStrip->Show();
 
       // Don't use the disconnect() function which changes the config, clearing the SSID & password
       WiFi.mode( WIFI_OFF );
@@ -198,9 +327,6 @@ void loop()
 
     if( sleeping )
     {
-#ifdef SECTIONAL_DEBUG
-      digitalWrite( LED_BUILTIN, HIGH );
-#endif
       delay( 60 * 1000 );
       return;
     }
@@ -226,9 +352,9 @@ void loop()
       Serial.print( "\"..." );
 
       // Show Wi-Fi is not connected with Orange across the board
-      fill_solid( leds, airports.size(), CRGB::Orange );
-      FastLED.show();
-      
+      ledStrip->ClearTo( orange );
+      ledStrip->Show();
+
       // Wait up to 1 minute for connection...
       for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
       {
@@ -247,8 +373,8 @@ void loop()
       Serial.println( "OK!" );
 
       // Show success with Purple across the board
-      fill_solid( leds, airports.size(), CRGB::Purple );
-      FastLED.show();
+      ledStrip->ClearTo( purple );
+      ledStrip->Show();
     }
   }
 
@@ -269,13 +395,13 @@ void loop()
 
           float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
 
-          if( result <= (uint8_t)(~0) )
+          if( result <= UINT8_MAX )
           {
             brightnessTarget = (uint8_t) result;
           }
           else
           {
-            brightnessTarget = (uint8_t)(~0);
+            brightnessTarget = UINT8_MAX;
           }
 
           // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
@@ -287,7 +413,7 @@ void loop()
             brightnessTarget = 0;
           }
           
-  #ifdef SECTIONAL_DEBUG
+#ifdef SECTIONAL_DEBUG
           Serial.print( "TSL2561: " );
           Serial.print( event.light );
           Serial.print( " between " );
@@ -298,7 +424,7 @@ void loop()
           Serial.print( slope );
           Serial.print( ", reuslt " );
           Serial.println( result );
-  #endif  
+#endif  
           break;
         }
       }
@@ -308,12 +434,12 @@ void loop()
 
     if( brightnessCurrent != brightnessTarget )
     {
-  #ifdef SECTIONAL_DEBUG
+#ifdef SECTIONAL_DEBUG
       Serial.print( "TSL2561: current " );
       Serial.print( brightnessCurrent );
       Serial.print( " target " );
       Serial.println( brightnessTarget );
-  #endif
+#endif
       int stepSize = 4;
 
       int nextStep = brightnessCurrent;
@@ -333,8 +459,7 @@ void loop()
 
       brightnessCurrent = (uint8_t) nextStep;
       
-      FastLED.setBrightness( brightnessCurrent );
-      FastLED.show();
+      displayFlightConditions();
     }
   }
 
@@ -373,21 +498,23 @@ void loop()
         if( getMetars() )
         {
           metarRetryCount = 0;
-          FastLED.show();
         }
         else
         {
           if( ++metarRetryCount >= METAR_MAX_RETRIES )
           {
             Serial.println( "Unable" );
-            fill_solid( leds, airports.size(), CRGB::Cyan );
-            FastLED.show();
             metarRetryCount = 0;
           }
           else
           {
             metarInterval = METAR_RETRY_INTERVAL_S * 1000;
           }
+        }
+
+        if( metarRetryCount == 0 )
+        {
+          displayFlightConditions();
         }
 
         Serial.print( "METAR request again in " );
@@ -400,6 +527,7 @@ void loop()
 
       default:
         metarState = METAR_STATE_INIT;
+        break;
     }
   }
 
@@ -407,244 +535,31 @@ void loop()
   {
     static unsigned long lightningLast = 0;
 
-    if( (LIGHTNING_INTERVAL > 0) && (lightningLeds.size() > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
+    if( (LIGHTNING_INTERVAL > 0) && (millis() - lightningLast > (LIGHTNING_INTERVAL*1000)) )
     {
-      std::vector<CRGB> lightning( lightningLeds.size() );
-      
+      bool haveLightning = false;
+
       lightningLast = millis();
 
-      for( unsigned i = 0; i < lightningLeds.size(); ++i )
+      for( const auto& pair : airports )
       {
-        unsigned currentLed = lightningLeds[i];
-        lightning[i] = leds[currentLed]; // temporarily store original color
-        leds[currentLed] = CRGB::White; // set to white briefly
+        if( pair.second.lightning )
+        {
+          // Override pixel color with white directly
+          ledStrip->SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent * 2) );
+          haveLightning = true;
+        }
       }
-      FastLED.show();
-      
-      delay( 25 );
-      
-      for( unsigned i = 0; i < lightningLeds.size(); ++i )
+
+      if( haveLightning )
       {
-        unsigned currentLed = lightningLeds[i];
-        leds[currentLed] = lightning[i]; // restore original color
+        ledStrip->Show();
+        delay( 25 );
+        displayFlightConditions();
       }
-      FastLED.show();
     }
   }
-
-#ifdef SECTIONAL_DEBUG
-  digitalWrite( LED_BUILTIN, HIGH );
-#endif
 
   // All done.  Yeild to other processes.
   delay( 1000 );
-}
-
-bool parseMetarAndAssignLed( const char *xml )
-{
-  XMLDocument doc;
-  
-  XMLError result = doc.Parse( xml );
-
-  if( result != XML_SUCCESS )
-  {
-    return false;
-  }
-
-  XMLNode* metar = doc.FirstChildElement( "METAR" );
-  if( metar == NULL )
-  {
-    return false;
-  }
-
-  XMLElement* stationIdElem = metar->FirstChildElement( "station_id" );
-  XMLElement* flightCategoryElem = metar->FirstChildElement( "flight_category" );
-  XMLElement* windSpeedKtElem = metar->FirstChildElement( "wind_speed_kt" );
-  XMLElement* windGustKtElem = metar->FirstChildElement( "wind_gust_kt" );
-  XMLElement* wxStringElem = metar->FirstChildElement( "wx_string" );
-  
-  if( stationIdElem == NULL )
-  {
-    return false;
-  }
-
-  String stationId = String( stationIdElem->GetText() );
-  String flightCategory = String( flightCategoryElem != NULL ? flightCategoryElem->GetText() : "" );
-  String wxString = String( wxStringElem != NULL ? wxStringElem->GetText() : "" );
-
-  int windSpeedKt = 0;
-  if( windSpeedKtElem != NULL )
-  {
-    windSpeedKtElem->QueryIntText( &windSpeedKt );
-  }
-
-  int windGustKt = 0;
-  if( windGustKtElem != NULL )
-  {
-    windGustKtElem->QueryIntText( &windGustKt );
-  }
-
-  struct FlightCatColor
-  {
-    String category;
-    CRGB color;
-  };
-
-  static FlightCatColor flightCatColors[] = 
-  {
-    { "LIFR", CRGB::Magenta },
-    { "IFR",  CRGB::Red },
-    { "MVFR", CRGB::Blue },
-    { "VFR",  CRGB::Green },
-    { "",     CRGB::White }
-  };
-
-  CRGB color = CRGB::Black;
-
-  for( unsigned i = 0; i < (sizeof(flightCatColors) / sizeof(struct FlightCatColor)); i++ )
-  {
-    if( flightCatColors[i].category == flightCategory )
-    {
-      color = flightCatColors[i].color;
-    }
-  }
-  
-  if( flightCategory == "VFR" && ((windSpeedKt > WIND_THRESHOLD) || (windGustKt > WIND_THRESHOLD)) )
-  {
-    color = CRGB::Yellow;
-  }
-  
-  for( unsigned i = 0; i < airports.size(); i++ )
-  {
-    if( airports[i] == stationId )
-    {
-      leds[i] = color;
-      
-      if( wxString.indexOf("TS") != -1 )
-      {
-        lightningLeds.push_back( i );
-      }
-
-#ifdef SECTIONAL_DEBUG
-      Serial.print( stationId + ": " + flightCategory + " " );
-      Serial.print( windSpeedKt );
-      Serial.print( "G" );
-      Serial.print( windGustKt );
-      Serial.print( " LED " );
-      Serial.print( i );
-      Serial.print( " " );
-      Serial.println( wxString );
-#endif
-    }
-  }
-
-  return true;
-}
-
-bool getMetars()
-{
-  String airportString = "";
-  
-  for( unsigned i = 0; i < (airports.size()); i++ )
-  {
-    if( airports[i] != "NULL" && airports[i] != "VFR" && airports[i] != "MVFR" && airports[i] != "WVFR" && airports[i] != "IFR" && airports[i] != "LIFR" )
-    {
-      if( airportString.length() == 0 )
-      {
-        airportString = airports[i];
-      }
-      else
-      {
-        airportString = airportString + "," + airports[i];
-      }
-    }
-  }
-
-  lightningLeds.clear(); // clear out existing lightning LEDs since they're global
-
-  // Set everything to black just in case there is no report for a given airport
-  fill_solid( leds, airports.size(), CRGB::Black );
-  
-  WiFiClientSecure client;
-  client.setBufferSizes( 2048, 512 );
-  client.setInsecure();
-
-  Serial.print( "Starting connection to server..." );
-  if( !client.connect(AW_SERVER, 443) )
-  {
-    Serial.println( "Connection failed!" );
-    return false;
-  }
-  
-#ifdef SECTIONAL_DEBUG
-  Serial.println( String("GET ") + BASE_URI + airportString + " HTTP/1.1\r\n" +
-                "Host: " + AW_SERVER + "\r\n" +
-                "Connection: close\r\n\r\n" );
-#endif
-  client.print( String("GET ") + BASE_URI + airportString + " HTTP/1.1\r\n" +
-                "Host: " + AW_SERVER + "\r\n" +
-                "Connection: close\r\n\r\n" );
-  client.flush();
-
-  // Give some time for the response to start
-  unsigned long timeNow = millis();
-  while( !client.available() )
-  {
-    if( millis() - timeNow > (METAR_READ_TIMEOUT_S  * 1000) )
-    {
-      // Timeout
-      break;
-    }
-    Serial.print( "." );
-    delay( 1000 );
-  }
-  Serial.println();
-
-  bool fullResponse = false;
-
-  // Manually extract the <METAR> tag one at a time
-  // This allows for a large result for high LED count displays without having to 
-  // statically allocate high amounts of RAM to read the entire API result at once
-  while( client.connected() || client.available() )
-  {
-    delay( 0 );
-    
-    String buffer = client.readStringUntil( '>' ) + ">";
-
-    // Timeout
-    if( buffer == ">" )
-    {
-      break;
-    }
-
-    if( buffer.endsWith("<METAR>") )
-    {
-      String metar = "<METAR>";
-      
-      while( !metar.endsWith("</METAR>") )
-      {
-        delay( 0 );
-        metar += client.readStringUntil( '>' ) + ">";;
-      }
-      
-      parseMetarAndAssignLed( metar.c_str() );
-    }
-    else if( buffer.endsWith("</response>") )
-    {
-      fullResponse = true;
-      break;
-    }
-  }
-
-  // Do the legend LEDs now if they exist
-  for( unsigned i = 0; i < (airports.size()); i++ )
-  {
-    if( airports[i] == "VFR" ) leds[i] = CRGB::Green;
-    else if( airports[i] == "WVFR" ) leds[i] = CRGB::Yellow;
-    else if( airports[i] == "MVFR" ) leds[i] = CRGB::Blue;
-    else if( airports[i] == "IFR" ) leds[i] = CRGB::Red;
-    else if( airports[i] == "LIFR" ) leds[i] = CRGB::Magenta;
-  }
-  
-  return fullResponse;
 }

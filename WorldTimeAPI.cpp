@@ -85,7 +85,7 @@ bool WorldTimeAPI::update()
   String json = http.getString();
   http.end();
   
-  DynamicJsonDocument jsonDoc( 1024 );
+  JsonDocument jsonDoc;
   DeserializationError error = deserializeJson( jsonDoc, json );
   if( error )
   {
@@ -107,7 +107,7 @@ bool WorldTimeAPI::update()
   // atoi() will stop after the hour component so if support is required for
   // non-hourly offsets then one needs to parse the second half of the offset as well
   int utc_offset = atoi( root["utc_offset"] );
-  this->_utcOffsetS = utc_offset * 60 * 60;
+  this->_utcOffsetS = (long)utc_offset * 60 * 60;
   
   unsigned dayOfYear = root["day_of_year"];
   this->_yearStartedUtc = this->_timeSinceEpochS + this->_utcOffsetS - ((dayOfYear-1) * 24 * 60 * 60) - (this->getHour() * 60 * 60) - (this->getMinute() * 60) - this->getSecond();
