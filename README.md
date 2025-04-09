@@ -23,7 +23,12 @@ The World Time API is used to automatically set the time so the sectional can go
 ## Get Started
 * Download the Arduino IDE
 * Add support for the ESP8266 board (add the URL to the board manager and install version 3.1.2)
-* Add the "ArduinoJson" (7.3.1), "NeoPixelBus" (2.8.3), "Adafruit Unified Sensor" (1.1.15), and "Adafruit TS2561" (1.1.2) libraries
+* Add the following libraries:
+  * ArduinoJson (7.3.1)
+  * NeoPixelBus (2.8.3)
+  * Adafruit Unified Sensor (1.1.15)
+  * Adafruit TS2561 (1.1.2)
+  * StreamUtils (1.9.0)
 * Open the .ino project in this repository.
 * Set your Wi-Fi credentials in the led_sectional.h file
 * Upload the project 
