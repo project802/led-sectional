@@ -13,6 +13,7 @@
 #include <Adafruit_TSL2561_U.h>
 #include <ArduinoJson.h>
 #include <NeoPixelBus.h>
+#include <StreamUtils.h>
 #include "WorldTimeAPI.h"
 
 #ifndef AW_SERVER
@@ -161,8 +162,10 @@ bool getMetars( void )
     return false;
   }
 
+  ChunkDecodingStream decodedStream( httpClient.getStream() );
+
   // fast forward to the array of airport results
-  client.find( "\"features\":[" );
+  decodedStream.find( "\"features\":[" );
 
   JsonDocument doc;
   JsonDocument filter;
@@ -184,7 +187,7 @@ bool getMetars( void )
     
     do
     {
-      json += client.readStringUntil( ',' ) + ",";
+      json += decodedStream.readStringUntil( ',' ) + ",";
 
       // Each non-last feature
       if( json.endsWith("}},") )
