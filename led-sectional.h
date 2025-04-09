@@ -71,8 +71,6 @@ struct AirportConditions
   unsigned windGust;
 };
 
-#define NUM_AIRPORTS          22
-
 std::map<String, AirportConditions> airports = {
   { "KJFK", { .pixel = 0 } },
   { "KHPN", { .pixel = 1 } },

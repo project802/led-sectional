@@ -34,7 +34,7 @@ uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
 uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
 bool                            tslPresent                = false;
 
-NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> ledStrip( NUM_AIRPORTS );
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> *ledStrip = NULL;
 
 void setup()
 {
@@ -62,8 +62,9 @@ void setup()
   digitalWrite( LED_BUILTIN, HIGH );
 
   // Init airport LEDs to off
-  ledStrip.Begin();
-  ledStrip.Show();
+  ledStrip = new NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod>( airports.size() );
+  ledStrip->Begin();
+  ledStrip->Show();
 
   if( !tsl.begin() )
   {
@@ -109,10 +110,10 @@ void displayFlightConditions( void )
       Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
     }
 
-    ledStrip.SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
+    ledStrip->SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
   }
 
-  ledStrip.Show();
+  ledStrip->Show();
 }
 
 bool getMetars( void )
@@ -301,8 +302,8 @@ void loop()
       sleeping = true;
 
       // Turn off METAR LEDs
-      ledStrip.ClearTo( black );
-      ledStrip.Show();
+      ledStrip->ClearTo( black );
+      ledStrip->Show();
 
       // Don't use the disconnect() function which changes the config, clearing the SSID & password
       WiFi.mode( WIFI_OFF );
@@ -351,8 +352,8 @@ void loop()
       Serial.print( "\"..." );
 
       // Show Wi-Fi is not connected with Orange across the board
-      ledStrip.ClearTo( orange );
-      ledStrip.Show();
+      ledStrip->ClearTo( orange );
+      ledStrip->Show();
 
       // Wait up to 1 minute for connection...
       for( unsigned c = 0; (c < 60) && (WiFi.status() != WL_CONNECTED); c++ )
@@ -372,8 +373,8 @@ void loop()
       Serial.println( "OK!" );
 
       // Show success with Purple across the board
-      ledStrip.ClearTo( purple );
-      ledStrip.Show();
+      ledStrip->ClearTo( purple );
+      ledStrip->Show();
     }
   }
 
@@ -545,14 +546,14 @@ void loop()
         if( pair.second.lightning )
         {
           // Override pixel color with white directly
-          ledStrip.SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent * 2) );
+          ledStrip->SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent * 2) );
           haveLightning = true;
         }
       }
 
       if( haveLightning )
       {
-        ledStrip.Show();
+        ledStrip->Show();
         delay( 25 );
         displayFlightConditions();
       }
