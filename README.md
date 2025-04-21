@@ -50,7 +50,7 @@ If you have a successful upload, you can get started with your customizations an
   * SCL to D1
 
 ## Wishlist
-Maybee stop using World Time API and utilize the response from aviationweather.gov that has the unix timestamp?
+Maybe stop using World Time API and utilize the response from aviationweather.gov that has the unix timestamp?
 
 I'd like to not use insecure SSL, but the certificate for aviationweather.gov rotates multiple times a year and that will be annoying to keep up with.
 
