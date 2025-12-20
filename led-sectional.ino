@@ -27,7 +27,7 @@
 const unsigned                  METAR_READ_TIMEOUT_S      = 5;
 const unsigned                  METAR_RETRY_INTERVAL_S    = 5;
 const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
-const unsigned                  METAR_MAX_RETRIES         = 15;
+const unsigned                  METAR_MAX_RETRIES         = 2;
 
 Adafruit_TSL2561_Unified        tsl                       = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
 uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
@@ -116,57 +116,51 @@ void displayFlightConditions( void )
   ledStrip->Show();
 }
 
-bool getMetars( void )
+bool getAirports( String url, unsigned numAirports )
 {
+  unsigned foundAirports = 0;
+
+  if( numAirports == 0 )
+  {
+    Serial.println( "Error: no airports to fetch" );
+    return false;
+  }
+
   WiFiClientSecure client;
   HTTPClient httpClient;
 
   client.setInsecure();
 
-  String url = String( "https://" ) + AW_SERVER + "/" + BASE_URI;
-
-  for( auto it = airports.begin(); it != airports.end(); ++it )
-  {
-    // Reset flight category
-    it->second.flightCategory = "";
-    it->second.lightning = false;
-    it->second.windSpeed = 0;
-    it->second.windGust = 0;
-
-    // Build up URL
-    if( it != airports.begin() )
-      url = url + ",";
-
-    url = url + it->first;
-  }
-
 #ifdef SECTIONAL_DEBUG
-  Serial.println( url );
+  Serial.println( "Fetching " + url );
+  Serial.print( "Starting connection to server (" + String(numAirports) + " airports)..." );
 #endif
 
-  Serial.print( "Starting connection to server..." );
   if( httpClient.begin(client, url) )
   {
+#ifdef SECTIONAL_DEBUG
     Serial.println( "OK" );
+#endif
   }
   else
   {
     Serial.println( "Connection failed!" );
     return false;
-  }  
+  }
 
   int16_t responseCode = httpClient.GET();
 
   if( responseCode != HTTP_CODE_OK )
   {
-    Serial.println( "Error fetching METARs" );
+    Serial.println( "Error fetching METARs. HTTP code: " );
+    Serial.println( responseCode );
     return false;
   }
 
-  ChunkDecodingStream decodedStream( httpClient.getStream() );
+  Stream &rawStream = httpClient.getStream();
+  ChunkDecodingStream decodedStream( rawStream );
 
-  // fast forward to the array of airport results
-  decodedStream.find( "\"features\":[" );
+  Stream& response = httpClient.header("Transfer-Encoding") == "chunked" ? decodedStream : rawStream;
 
   JsonDocument doc;
   JsonDocument filter;
@@ -178,27 +172,32 @@ bool getMetars( void )
   filter["properties"]["wspd"] = true;
   filter["properties"]["wgst"] = true;
 
-  bool lastFeature = false;
   unsigned long metarStart = millis();
 
   // Deserialize in chunks since the entire http response cannot be kept in one big buffer
   do {
     unsigned long now = millis();
-    String json = "";
     
+    bool foundAirport;
+    String json;
+
+    json = "{";
+
+    if( !response.find( "\"type\":\"Feature\"," ) )
+    {
+      Serial.println( "Timeout or EOF for airport" );
+      break;
+    }
+
+    foundAirport = false;
+
     do
     {
-      json += decodedStream.readStringUntil( ',' ) + ",";
+      json += response.readStringUntil( '}' ) + '}';
 
-      // Each non-last feature
-      if( json.endsWith("}},") )
+      if( json.endsWith("}}") )
       {
-        break;
-      }
-      // Last feature
-      else if( json.endsWith("}}],") )
-      {
-        lastFeature = true;
+        foundAirport = true;
         break;
       }
     }
@@ -206,14 +205,16 @@ bool getMetars( void )
 
     DeserializationError error = deserializeJson( doc, json, DeserializationOption::Filter(filter) );
 
-    if( error )
+    if( error || !foundAirport )
     {
-      Serial.print( "deserializeJson() failed: " );
+      Serial.print( "deserializeJson() failed or timeout: " );
       Serial.println( error.f_str() );
       Serial.println( json );
       
       return false;
     }
+
+    ++foundAirports;
 
     String airport = doc["properties"]["id"];
     String flightCategory = doc["properties"]["fltcat"];
@@ -228,15 +229,61 @@ bool getMetars( void )
     airports[airport].windGust = windGust;
 
     yield();
+  } while( foundAirports < numAirports );
 
-    if( (millis() - metarStart) > (METAR_READ_TIMEOUT_S * 1000) )
+  httpClient.end();
+
+#ifdef SECTIONAL_DEBUG
+  Serial.println( "Found " + String(foundAirports) );
+  Serial.println();
+#endif
+
+  return (foundAirports == numAirports );
+}
+
+bool getAllMetars( void )
+{
+  // Allow an error to continue. Sometimes airports don't return a METAR
+  // but don't let that stop all others from reporting.
+
+  bool retVal = true;
+
+  unsigned numAirports = 0;
+
+  String url = "";
+
+  for( auto it = airports.begin(); (it != airports.end()); ++it )
+  {
+    // Reset flight category
+    it->second.flightCategory = "";
+    it->second.lightning = false;
+    it->second.windSpeed = 0;
+    it->second.windGust = 0;
+
+    if( numAirports == 0 )
     {
-      Serial.println( "METAR read timeout" );
-      break;
+      url = String( "https://" ) + AW_SERVER + "/" + BASE_URI + it->first;
+      numAirports = 1;
     }
-  } while( !lastFeature );
+    else
+    {
+      url += "," + it->first;
+      numAirports++;
+    }
 
-  return lastFeature;
+    if( numAirports >= MAX_AIRPORTS_PER_REQUEST )
+    {
+      retVal &= getAirports( url, numAirports );
+      numAirports = 0;
+    }
+  }
+
+  if( numAirports > 0 )
+  {
+    retVal &= getAirports( url, numAirports );
+  }
+
+  return retVal;
 }
 
 void loop()
@@ -495,7 +542,7 @@ void loop()
 
         metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
 
-        if( getMetars() )
+        if( getAllMetars() )
         {
           metarRetryCount = 0;
         }
@@ -512,6 +559,7 @@ void loop()
           }
         }
 
+        // Display what we have, regardless. Sometimes stations just don't have METARs returned.
         if( metarRetryCount == 0 )
         {
           displayFlightConditions();
