@@ -173,8 +173,6 @@ bool getAirports( String url, unsigned numAirports )
   filter["properties"]["wspd"] = true;
   filter["properties"]["wgst"] = true;
 
-  unsigned long metarStart = millis();
-
   // Deserialize in chunks since the entire http response cannot be kept in one big buffer
   do {
     unsigned long now = millis();
