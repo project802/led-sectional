@@ -24,6 +24,7 @@
   #define BASE_URI              "api/data/metar?format=geojson&taf=false&ids="
 #endif
 
+const unsigned                  MAX_AIRPORTS_PER_REQUEST  = 8;
 const unsigned                  METAR_READ_TIMEOUT_S      = 5;
 const unsigned                  METAR_RETRY_INTERVAL_S    = 5;
 const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
