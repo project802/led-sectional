@@ -4,6 +4,9 @@
 
 ## 2026 Refactor
 * Convert to PlatformIO project
+* Remove all manual JSON interventions
+* Add additional METAR request retry mechanisms and improve HTTP header handling
+* Additional error checking and cleanups
 
 ## 2025 Refactor
 * Use latest aviationweather.gov API
@@ -29,7 +32,7 @@ The World Time API is used to automatically set the time so the sectional can go
 * Install VSCode and the PlatformIO IDE extension
 * Import this project using the PlatformIO Home screen
 * Set your Wi-Fi credentials in the led_sectional.h file
-* Build and upload the project 
+* Build and upload the project
 
 If you have a successful upload, you can get started with your customizations and hardware installation.
 
@@ -55,5 +58,3 @@ An API that tells if the day is a holiday would be nice. Maybe I'll host one if 
 Use WiFiManager to set the Wi-Fi credentials and do connection management instead of manually managing the state.
 
 Have simple serial port commands to stimulate various functionality for debug and testing.
-
-Research ways to not manually parse the JSON in chunks
