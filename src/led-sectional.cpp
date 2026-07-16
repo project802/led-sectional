@@ -120,15 +120,9 @@ void displayFlightConditions( void )
   ledStrip->Show();
 }
 
-bool getAirports( String url, unsigned numAirports )
+unsigned getAirports( String url )
 {
   unsigned foundAirports = 0;
-
-  if( numAirports == 0 )
-  {
-    Serial.println( "Error: no airports to fetch" );
-    return false;
-  }
 
   WiFiClientSecure client;
   HTTPClient httpClient;
@@ -171,73 +165,62 @@ bool getAirports( String url, unsigned numAirports )
   ChunkDecodingStream decodedStream( rawStream );
 
   Stream& response = httpClient.header("Transfer-Encoding") == "chunked" ? decodedStream : rawStream;
+  response.setTimeout( METAR_READ_TIMEOUT_S * 1000 );
 
   JsonDocument doc;
   JsonDocument filter;
+  JsonArray features;
 
   // Filter out most of the data to not run out of heap
-  filter["properties"]["id"] = true;
-  filter["properties"]["fltcat"] = true;
-  filter["properties"]["rawOb"] = true;
-  filter["properties"]["wspd"] = true;
-  filter["properties"]["wgst"] = true;
+  filter["features"][0]["properties"]["id"] = true;
+  filter["features"][0]["properties"]["fltcat"] = true;
+  filter["features"][0]["properties"]["rawOb"] = true;
+  filter["features"][0]["properties"]["wspd"] = true;
+  filter["features"][0]["properties"]["wgst"] = true;
 
-  // Deserialize in chunks since the entire http response cannot be kept in one big buffer
-  do {
-    unsigned long now = millis();
-    
-    bool foundAirport;
-    String json;
+  DeserializationError error = deserializeJson( doc, response, DeserializationOption::Filter(filter) );
 
-    json = "{";
+  if( error )
+  {
+    Serial.print( "deserializeJson() failed while parsing feature: " );
+    Serial.println( error.f_str() );
+    goto hangup;
+  }
 
-    if( !response.find( "\"type\":\"Feature\"," ) )
+#ifdef SECTIONAL_DEBUG
+  serializeJsonPretty( doc, Serial );
+#endif
+
+  features = doc["features"].as<JsonArray>();
+
+  if( features.isNull() )
+  {
+    Serial.println( "Error: features array missing or invalid" );
+    goto hangup;
+  }
+
+  for( JsonVariant featureVariant : features )
+  {
+    if( !featureVariant.is<JsonObject>() )
     {
-      Serial.println( "Timeout or EOF for airport" );
+      Serial.println( "Error: feature is not a JSON object" );
       goto hangup;
     }
 
-    foundAirport = false;
+    JsonObject feature = featureVariant.as<JsonObject>();
 
-    do
-    {
-      json += response.readStringUntil( '}' ) + '}';
-
-      if( json.endsWith("}}") )
-      {
-        foundAirport = true;
-        break;
-      }
-    }
-    while( (millis() - now) < (METAR_READ_TIMEOUT_S * 1000) );
-
-    if( !foundAirport )
-    {
-      Serial.println( "Can't find full airport data" );
-      goto hangup;
-    }
-
-    DeserializationError error = deserializeJson( doc, json, DeserializationOption::Filter(filter) );
-
-    if( error )
-    {
-      Serial.print( "deserializeJson() failed or timeout: " );
-      Serial.println( error.f_str() );
-      Serial.println( json );
-      goto hangup;
-    }
-
-    ++foundAirports;
-
-    String airport = doc["properties"]["id"];
-    String flightCategory = doc["properties"]["fltcat"];
-    String rawOb = doc["properties"]["rawOb"];
-    unsigned windSpeed = doc["properties"]["wspd"];
-    unsigned windGust = doc["properties"]["wgst"];
+    String airport = feature["properties"]["id"];
 
     if( airports.find(airport) != airports.end() )
     {
-      // Set the flight category and let the LED color mapping be done elsewhere
+      ++foundAirports;
+      
+      String flightCategory = feature["properties"]["fltcat"];
+      String rawOb = feature["properties"]["rawOb"];
+      unsigned windSpeed = feature["properties"]["wspd"];
+      unsigned windGust = feature["properties"]["wgst"];
+
+      // Load up the airport conditions into the map for later display processing
       airports[airport].flightCategory = flightCategory;
       airports[airport].lightning = (rawOb.indexOf("TS") != -1);
       airports[airport].windSpeed = windSpeed;
@@ -245,7 +228,7 @@ bool getAirports( String url, unsigned numAirports )
     }
 
     yield();
-  } while( foundAirports < numAirports );
+  }
 
 hangup:
   httpClient.end();
@@ -255,7 +238,7 @@ hangup:
   Serial.println();
 #endif
 
-  return (foundAirports == numAirports);
+  return foundAirports;
 }
 
 bool getAllMetars( void )
@@ -275,7 +258,7 @@ bool getAllMetars( void )
   {
     for( unsigned attempt = 0; attempt < 3; ++attempt )
     {
-      if( getAirports(requestUrl, requestCount) )
+      if( requestCount == getAirports(requestUrl) )
       {
         return true;
       }
