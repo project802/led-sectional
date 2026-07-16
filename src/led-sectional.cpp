@@ -151,6 +151,10 @@ bool getAirports( String url, unsigned numAirports )
     return false;
   }
 
+  // Ask http client to explicitly save the Transfer-Encoding header so we can check if it is chunked or not
+  const char* headerKeys[] = { "Transfer-Encoding" };
+  httpClient.collectHeaders( headerKeys, 1 );
+
   int16_t responseCode = httpClient.GET();
 
   if( responseCode != HTTP_CODE_OK )
