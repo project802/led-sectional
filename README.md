@@ -55,3 +55,5 @@ An API that tells if the day is a holiday would be nice. Maybe I'll host one if 
 Use WiFiManager to set the Wi-Fi credentials and do connection management instead of manually managing the state.
 
 Have simple serial port commands to stimulate various functionality for debug and testing.
+
+Research ways to not manually parse the JSON in chunks
