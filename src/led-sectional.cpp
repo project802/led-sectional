@@ -131,7 +131,7 @@ unsigned getAirports( String url )
 
 #ifdef SECTIONAL_DEBUG
   Serial.println( "Fetching " + url );
-  Serial.print( "Starting connection to server (" + String(numAirports) + " airports)..." );
+  Serial.print( "Starting connection to server..." );
 #endif
 
   if( httpClient.begin(client, url) )
@@ -143,8 +143,7 @@ unsigned getAirports( String url )
   else
   {
     Serial.println( "Connection failed!" );
-    httpClient.end();
-    return false;
+    return foundAirports;
   }
 
   // Ask http client to explicitly save the Transfer-Encoding header so we can check if it is chunked or not
@@ -157,8 +156,7 @@ unsigned getAirports( String url )
   {
     Serial.print( "Error fetching METARs. HTTP code: " );
     Serial.println( responseCode );
-    httpClient.end();
-    return false;
+    return foundAirports;
   }
 
   Stream &rawStream = httpClient.getStream();
@@ -167,10 +165,8 @@ unsigned getAirports( String url )
   Stream& response = httpClient.header("Transfer-Encoding") == "chunked" ? decodedStream : rawStream;
   response.setTimeout( METAR_READ_TIMEOUT_S * 1000 );
 
-  JsonDocument doc;
   JsonDocument filter;
-  JsonArray features;
-
+  
   // Filter out most of the data to not run out of heap
   filter["features"][0]["properties"]["id"] = true;
   filter["features"][0]["properties"]["fltcat"] = true;
@@ -178,25 +174,26 @@ unsigned getAirports( String url )
   filter["features"][0]["properties"]["wspd"] = true;
   filter["features"][0]["properties"]["wgst"] = true;
 
+  JsonDocument doc;
   DeserializationError error = deserializeJson( doc, response, DeserializationOption::Filter(filter) );
 
   if( error )
   {
     Serial.print( "deserializeJson() failed while parsing feature: " );
     Serial.println( error.f_str() );
-    goto hangup;
+    return foundAirports;
   }
 
 #ifdef SECTIONAL_DEBUG
   serializeJsonPretty( doc, Serial );
 #endif
 
-  features = doc["features"].as<JsonArray>();
+  JsonArray features = doc["features"].as<JsonArray>();
 
   if( features.isNull() )
   {
     Serial.println( "Error: features array missing or invalid" );
-    goto hangup;
+    return foundAirports;
   }
 
   for( JsonVariant featureVariant : features )
@@ -204,14 +201,15 @@ unsigned getAirports( String url )
     if( !featureVariant.is<JsonObject>() )
     {
       Serial.println( "Error: feature is not a JSON object" );
-      goto hangup;
+      return foundAirports;
     }
 
     JsonObject feature = featureVariant.as<JsonObject>();
 
-    String airport = feature["properties"]["id"];
+    String airportId = feature["properties"]["id"];
 
-    if( airports.find(airport) != airports.end() )
+    const auto& airportIt = airports.find(airportId);
+    if( airportIt != airports.end() )
     {
       ++foundAirports;
       
@@ -221,17 +219,14 @@ unsigned getAirports( String url )
       unsigned windGust = feature["properties"]["wgst"];
 
       // Load up the airport conditions into the map for later display processing
-      airports[airport].flightCategory = flightCategory;
-      airports[airport].lightning = (rawOb.indexOf("TS") != -1);
-      airports[airport].windSpeed = windSpeed;
-      airports[airport].windGust = windGust;
+      airportIt->second.flightCategory = flightCategory;
+      airportIt->second.lightning = (rawOb.indexOf("TS") != -1);
+      airportIt->second.windSpeed = windSpeed;
+      airportIt->second.windGust = windGust;
     }
 
     yield();
   }
-
-hangup:
-  httpClient.end();
 
 #ifdef SECTIONAL_DEBUG
   Serial.println( "Found " + String(foundAirports) );
