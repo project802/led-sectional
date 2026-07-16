@@ -59,8 +59,8 @@ const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
   { 65536,  128 }                     // REQUIRED index of 65536
 };
 
-const char ssid[] = "CHANGE-ME";      // your network SSID (name)
-const char pass[] = "CHANGE-ME";      // your network password (use for WPA, or use as key for WEP)
+#define WIFI_SSID "CHANGE-ME" // your network SSID (name)
+#define WIFI_PASS "CHANGE-ME" // your network password
 
 struct AirportConditions
 {
@@ -113,5 +113,11 @@ std::map<String, RgbColor> flightCategoryColors = {
   { "VFR",  green },
   { "",     black }
 };
+
+#ifdef __has_include
+  #if __has_include( "local_config.h" )
+    #include "local_config.h"
+  #endif
+#endif
 
 #endif

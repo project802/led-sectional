@@ -57,7 +57,7 @@ void setup()
   WiFi.mode( WIFI_OFF );
   while( WiFi.status() == WL_CONNECTED ) delay(0);
   WiFi.mode( WIFI_STA );
-  WiFi.begin( ssid, pass );  
+  WiFi.begin( WIFI_SSID, WIFI_PASS );
 
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
@@ -416,7 +416,7 @@ void loop()
       {
         Serial.println( "No WiFi config found.  Starting." );
         WiFi.mode( WIFI_STA );
-        WiFi.begin( ssid, pass );
+        WiFi.begin( WIFI_SSID, WIFI_PASS );
       }
       
       Serial.print( "Connecting to SSID \"" );
@@ -438,7 +438,7 @@ void loop()
       {
         Serial.println( "Failed. Will retry..." );
         WiFi.mode( WIFI_STA );
-        WiFi.begin( ssid, pass );
+        WiFi.begin( WIFI_SSID, WIFI_PASS );
         return;
       }
       
