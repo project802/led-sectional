@@ -2,6 +2,9 @@
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/6d49a017b89b4e7395385a1821d93631)](https://app.codacy.com/gh/project802/led-sectional/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
+## 2026 Refactor
+* Convert to PlatformIO project
+
 ## 2025 Refactor
 * Use latest aviationweather.gov API
 * Upgrade to esp8266 board support version 3.1.2
@@ -23,17 +26,10 @@ Using a TSL2561 light sensor from Adafruit, dynamically control the brightness o
 The World Time API is used to automatically set the time so the sectional can go to sleep and wake up at pre-programmed times for either weekdays or weekends.  When sleeping, the LEDs are turned off and METAR queries pause.  This is to be good citizens to the Data API and conserve power.  US federal holidays are treated as weekends.
 
 ## Get Started
-* Download the Arduino IDE
-* Add support for the [ESP8266 board](https://github.com/esp8266/Arduino) (add the URL to the board manager and install version 3.1.2)
-* Add the following libraries:
-  * ArduinoJson (7.4.2)
-  * NeoPixelBus (2.8.4)
-  * Adafruit Unified Sensor (1.1.15)
-  * Adafruit TS2561 (1.1.2)
-  * StreamUtils (1.9.1)
-* Open the .ino project in this repository.
+* Install VSCode and the PlatformIO IDE extension
+* Import this project using the PlatformIO Home screen
 * Set your Wi-Fi credentials in the led_sectional.h file
-* Upload the project 
+* Build and upload the project 
 
 If you have a successful upload, you can get started with your customizations and hardware installation.
 
