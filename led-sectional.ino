@@ -146,6 +146,7 @@ bool getAirports( String url, unsigned numAirports )
   else
   {
     Serial.println( "Connection failed!" );
+    httpClient.end();
     return false;
   }
 
@@ -155,6 +156,7 @@ bool getAirports( String url, unsigned numAirports )
   {
     Serial.println( "Error fetching METARs. HTTP code: " );
     Serial.println( responseCode );
+    httpClient.end();
     return false;
   }
 
@@ -209,7 +211,7 @@ bool getAirports( String url, unsigned numAirports )
       Serial.print( "deserializeJson() failed or timeout: " );
       Serial.println( error.f_str() );
       Serial.println( json );
-      
+      httpClient.end();
       return false;
     }
 
@@ -251,6 +253,24 @@ bool getAllMetars( void )
 
   String url = "";
 
+  auto fetchAirportsWithRetry = [&]( String requestUrl, unsigned requestCount ) -> bool
+  {
+    for( unsigned attempt = 0; attempt < 3; ++attempt )
+    {
+      if( getAirports( requestUrl, requestCount ) )
+      {
+        return true;
+      }
+      else
+      {
+        Serial.println( "Retrying METAR request in 10 seconds..." );
+        delay( 10000 );
+      }
+    }
+
+    return false;
+  };
+
   for( auto it = airports.begin(); (it != airports.end()); ++it )
   {
     // Reset flight category
@@ -272,14 +292,14 @@ bool getAllMetars( void )
 
     if( numAirports >= MAX_AIRPORTS_PER_REQUEST )
     {
-      retVal &= getAirports( url, numAirports );
+      retVal &= fetchAirportsWithRetry( url, numAirports );
       numAirports = 0;
     }
   }
 
   if( numAirports > 0 )
   {
-    retVal &= getAirports( url, numAirports );
+    retVal &= fetchAirportsWithRetry( url, numAirports );
   }
 
   return retVal;
