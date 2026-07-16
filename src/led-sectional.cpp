@@ -6,6 +6,7 @@
 
 #include "led-sectional.h"
 
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
