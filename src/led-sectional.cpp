@@ -41,16 +41,16 @@ NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> *ledStrip = NULL;
 void setup()
 {
   String mac = WiFi.macAddress();
-  int pos;
+
   // Strip MAC address of colons
-  while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
+  mac.replace( ":", "" );
 
   WiFi.hostname( "LED-Sectional-" + mac );
 
   Serial.begin( 115200 );
-  delay( 5000 );
+  delay( 5000 ); // wait a bit here for things to settle in case we are using a serial port monitor
 
-   // Fresh line
+  // Fresh line
   Serial.println();
   Serial.println( "I am \"" + WiFi.hostname() + "\"" );
   
@@ -87,7 +87,7 @@ void displayFlightConditions( void )
 {
   for( const auto& pair : airports )
   {
-    String flightCategory = pair.second.flightCategory;
+    const String& flightCategory = pair.second.flightCategory;
     RgbColor flightCategoryColor = black;
 
 #ifdef SECTIONAL_DEBUG
@@ -96,7 +96,9 @@ void displayFlightConditions( void )
     Serial.println( pair.second.lightning ? "TS" : "" );
 #endif
 
-    if( flightCategoryColors.find(flightCategory) != flightCategoryColors.end() )
+    const auto& categoryColor = flightCategoryColors.find( flightCategory );
+
+    if( categoryColor != flightCategoryColors.end() )
     {
       if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
       {
@@ -104,7 +106,7 @@ void displayFlightConditions( void )
       }
       else
       {
-        flightCategoryColor = flightCategoryColors[flightCategory];
+        flightCategoryColor = categoryColor->second;
       }
     }
     else
@@ -159,7 +161,7 @@ bool getAirports( String url, unsigned numAirports )
 
   if( responseCode != HTTP_CODE_OK )
   {
-    Serial.println( "Error fetching METARs. HTTP code: " );
+    Serial.print( "Error fetching METARs. HTTP code: " );
     Serial.println( responseCode );
     httpClient.end();
     return false;
@@ -192,7 +194,7 @@ bool getAirports( String url, unsigned numAirports )
     if( !response.find( "\"type\":\"Feature\"," ) )
     {
       Serial.println( "Timeout or EOF for airport" );
-      break;
+      goto hangup;
     }
 
     foundAirport = false;
@@ -209,15 +211,20 @@ bool getAirports( String url, unsigned numAirports )
     }
     while( (millis() - now) < (METAR_READ_TIMEOUT_S * 1000) );
 
+    if( !foundAirport )
+    {
+      Serial.println( "Can't find full airport data" );
+      goto hangup;
+    }
+
     DeserializationError error = deserializeJson( doc, json, DeserializationOption::Filter(filter) );
 
-    if( error || !foundAirport )
+    if( error )
     {
       Serial.print( "deserializeJson() failed or timeout: " );
       Serial.println( error.f_str() );
       Serial.println( json );
-      httpClient.end();
-      return false;
+      goto hangup;
     }
 
     ++foundAirports;
@@ -228,15 +235,19 @@ bool getAirports( String url, unsigned numAirports )
     unsigned windSpeed = doc["properties"]["wspd"];
     unsigned windGust = doc["properties"]["wgst"];
 
-    // Set the flight category and let the LED color mapping be done elsewhere
-    airports[airport].flightCategory = flightCategory;
-    airports[airport].lightning = (rawOb.indexOf("TS") != -1);
-    airports[airport].windSpeed = windSpeed;
-    airports[airport].windGust = windGust;
+    if( airports.find(airport) != airports.end() )
+    {
+      // Set the flight category and let the LED color mapping be done elsewhere
+      airports[airport].flightCategory = flightCategory;
+      airports[airport].lightning = (rawOb.indexOf("TS") != -1);
+      airports[airport].windSpeed = windSpeed;
+      airports[airport].windGust = windGust;
+    }
 
     yield();
   } while( foundAirports < numAirports );
 
+hangup:
   httpClient.end();
 
 #ifdef SECTIONAL_DEBUG
@@ -256,9 +267,11 @@ bool getAllMetars( void )
 
   unsigned numAirports = 0;
 
-  String url = "";
+  String url;
+  url.reserve( 128 );
+  url = "";
 
-  auto fetchAirportsWithRetry = [&]( String requestUrl, unsigned requestCount ) -> bool
+  auto fetchAirportsWithRetry = [&]( String& requestUrl, unsigned requestCount ) -> bool
   {
     for( unsigned attempt = 0; attempt < 3; ++attempt )
     {
@@ -268,8 +281,8 @@ bool getAllMetars( void )
       }
       else
       {
-        Serial.println( "Retrying METAR request in 10 seconds..." );
-        delay( 10000 );
+        Serial.println( "Retrying METAR request..." );
+        delay( METAR_RETRY_INTERVAL_S * 1000 );
       }
     }
 
@@ -286,7 +299,12 @@ bool getAllMetars( void )
 
     if( numAirports == 0 )
     {
-      url = String( "https://" ) + AW_SERVER + "/" + BASE_URI + it->first;
+      url.clear();
+      url.concat( "https://" );
+      url.concat( AW_SERVER );
+      url.concat( "/" );
+      url.concat( BASE_URI );
+      url.concat( it->first );
       numAirports = 1;
     }
     else
@@ -297,14 +315,14 @@ bool getAllMetars( void )
 
     if( numAirports >= MAX_AIRPORTS_PER_REQUEST )
     {
-      retVal &= fetchAirportsWithRetry( url, numAirports );
+      retVal = retVal && fetchAirportsWithRetry( url, numAirports );
       numAirports = 0;
     }
   }
 
   if( numAirports > 0 )
   {
-    retVal &= fetchAirportsWithRetry( url, numAirports );
+    retVal = retVal && fetchAirportsWithRetry( url, numAirports );
   }
 
   return retVal;
@@ -458,7 +476,7 @@ void loop()
 
       tsl.getEvent( &event );
     
-      for( unsigned i = 0; luxMap[i] != NULL; i++ )
+      for( unsigned i = 0; luxMap[i] != nullptr; i++ )
       {
         if( event.light < luxMap[i][0] )
         {
@@ -511,6 +529,7 @@ void loop()
       Serial.print( " target " );
       Serial.println( brightnessTarget );
 #endif
+      // Step size is empirically determined to be a good balance between speed and smoothness of brightness change.
       int stepSize = 4;
 
       int nextStep = brightnessCurrent;
@@ -618,7 +637,8 @@ void loop()
         if( pair.second.lightning )
         {
           // Override pixel color with white directly
-          ledStrip->SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent * 2) );
+          uint8_t ratio = min( UINT8_MAX, brightnessCurrent * 2 );
+          ledStrip->SetPixelColor( pair.second.pixel, white.Dim(ratio) );
           haveLightning = true;
         }
       }
