@@ -1,0 +1,44 @@
+language: c
+sudo: false
+cache:
+  directories:
+    - ~/arduino_ide
+    - ~/.arduino15/packages/
+git:
+  depth: false
+  quiet: true
+env:
+  global:
+     - ARDUINO_IDE_VERSION="2.0.3"
+     - secure: "Dt7BtUopU4aO1Dss73rbWBZhriR83fv/PFbDyCqnFIS74kvcllz6IkY4p3PVL6lVE6qxFVF6n6VyrdPnFJFa79yhJgXsez22AMgoZCOS8VzQQjMOcBxxDBnpMtIMbnGF7Zn+53LL2HTsk/PS9tGrMbbQLedtbczR342BPdyaw1SEVwrMnaNsZm9ckSgKOmeWMgIhe/saKO1BiKeLLK7/DpzToaWfMbMQbxPQvupgEIkfRZzkwGYigOjrsGlgswWiBgyaaA/g08SqVQS/piYn2cJVj4Hb5F/0Y3K0cWlaLp15VDxxnOEFopOOJvg62MWXrFDyjz5Er0k1ZxJvrzStSV7neixZk3dYjwFfM8EpSOhtWeNzuWtuRGvdfZypfm7WK307DrKZbQt5d2FYCEG9eCw9tXsenut3ef3cJfRcJNXiHsNi1Xviepq6YRPK5msbVxmJ6a4YU9DHp2JgpACf9LpPMaBEtUofIod6273P7HPDjs8nr+hgqQYzc9IQo9pSi0BxcKu+E4U9AWtFPcrkEWI9lQkTgr6Itn2LiffsH1MPfBGYbl2lRJhXO4+T2BtdsK4dZMvtVmR7g0F5C57nTAKlFsUIU/LcixHF0Y30NzY2O6F4JYSFdy7lcaYzSvvBEEFmmQGE/jFq+4bFHaVJ2S0wXXBfRNUlBQ9o5ZEzxTM="
+before_install:
+  - source <(curl -SLs https://raw.githubusercontent.com/adafruit/travis-ci-arduino/master/install.sh)
+install:
+  - arduino --install-library "Adafruit TSL2561","FastLED","Adafruit Unified Sensor","ArduinoJson"
+script:
+  - arduino --board esp8266:esp8266:nodemcuv2:eesz=4M,xtal=80 --save-prefs
+  - rm $HOME/arduino_ide/libraries/Adafruit_Test_Library
+  - pwd
+  - ls -R
+  - mkdir led-sectional
+  - cp *.ino *.h *.cpp led-sectional/
+  - ( cd led-sectional ; arduino --verify --preserve-temp-files led-sectional.ino )
+  - mkdir $HOME/arduino_build
+  - cp -r /tmp/arduino_build_*/* $HOME/arduino_build/
+before_deploy:
+  - sed -e 's/@VERSION@/'"$TRAVIS_BRANCH"'/' -e 's/@PACKAGE@/continuous/' build/bintray_descriptor.json.in > build/bintray_descriptor.json
+deploy:
+  provider: bintray
+  file: build/bintray_descriptor.json
+  user: "project802"
+  key:
+    secure: "kWBL1jsivWFUXFgiYi1PXUDaOitaLhtcYbXoQPEZPgJmDzYLaOjmrTYGJJiRvFfKJtUJtTHKLgwhV0EeZRNzRh+Fsdy+9TnL2dzV4aZgQ1DDWabB5wScSNPhAY7JGifmsN3EZS+ouIbnqoY/gWDnUSg2kqj3ZFUqSIkeuoyM17BxAw5HoxXkYoBp6h+uSx/3l167tIgW/tbEX+wXpyXc01cxI9grwayFz7Zrg/UxqZili7YGJdIOWWNy1ehG7xsLWCoGQaERIHEAMDp9cCGuJr9w9DLGKvVXjCPrrdCfL6DEC3aTKm1AfYC2Hd6pHKEuvQ5iR8TljDVfNwEwN397P6232K7xa9PSectCnVXWX42ltZDEL2rftZytyG7bWu0knuco9wqccAs5TUU7zL9NF2Ja5Zcwtb3wpE9dbq9rmJM9MNYyNKUF3QzMfExW26cUZxya39WbSPYqyExlqr1T4+8o1N/z38QWpeVv0JpzFEUFArUcvsh5ubbhXd+ve2FSemBkNyJ9UkF4p+oMlNvhkR073czBhUR3wbqRDZkYQTXx8k1cYZKn9B5b23Bkr7YI7FdH/vrheRpUtneQxIKbRud3ubd4PgYcaLPGcu05MCHTXeZVgOXp9KCxKwQ0cDRrNElMVAl4ZP/GqqvLLWA3j7v1o0RPHAqMCMoscZAwUsE="
+  skip_cleanup: true
+  on:
+    all_branches: true
+after_deploy:
+  - curl 'https://project802.net/travis/hook.php?secret='"$HOOK_SECRET"'&event=deploy_complete&packageName=continuous&versionName='"$TRAVIS_BRANCH"
+notifications:
+  email:
+    on_success: change
+    on_failure: change
