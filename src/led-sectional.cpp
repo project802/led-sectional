@@ -240,7 +240,7 @@ bool getAirports( String url, unsigned numAirports )
   Serial.println();
 #endif
 
-  return (foundAirports == numAirports );
+  return (foundAirports == numAirports);
 }
 
 bool getAllMetars( void )
@@ -258,7 +258,7 @@ bool getAllMetars( void )
   {
     for( unsigned attempt = 0; attempt < 3; ++attempt )
     {
-      if( getAirports( requestUrl, requestCount ) )
+      if( getAirports(requestUrl, requestCount) )
       {
         return true;
       }
@@ -489,7 +489,7 @@ void loop()
           Serial.print( luxMap[i][0] );
           Serial.print( ", slope " );
           Serial.print( slope );
-          Serial.print( ", reuslt " );
+          Serial.print( ", result " );
           Serial.println( result );
 #endif  
           break;
@@ -628,6 +628,6 @@ void loop()
     }
   }
 
-  // All done.  Yeild to other processes.
+  // All done.  Yield to other processes.
   delay( 1000 );
 }
