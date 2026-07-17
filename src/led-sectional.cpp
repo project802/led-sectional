@@ -560,7 +560,9 @@ void loop()
 
       case METAR_STATE_FETCHING:
         Serial.println( "Getting METARs" );
-
+#ifdef SECTIONAL_DEBUG
+        Serial.printf( "free=%u, max=%u, frag=%u%%\n", ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation() );
+#endif
         metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
 
         if( getAllMetars() )
