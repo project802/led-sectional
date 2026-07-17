@@ -25,16 +25,15 @@
   #define BASE_URI              "api/data/metar?format=geojson&taf=false&ids="
 #endif
 
-const unsigned                  MAX_AIRPORTS_PER_REQUEST  = 8;
-const unsigned                  METAR_READ_TIMEOUT_S      = 5;
-const unsigned                  METAR_RETRY_INTERVAL_S    = 5;
-const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
-const unsigned                  METAR_MAX_RETRIES         = 2;
+const unsigned                  MAX_AIRPORTS_PER_REQUEST    = 8;
+const unsigned                  METAR_STREAM_READ_TIMEOUT_S = 5;
+const unsigned                  METAR_REQUEST_INTERVAL_S    = (15*60);
+const unsigned                  METAR_FETCH_TIMEOUT_S       = 60;
 
-Adafruit_TSL2561_Unified        tsl                       = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
-uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
-uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
-bool                            tslPresent                = false;
+Adafruit_TSL2561_Unified        tsl                         = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
+uint8_t                         brightnessCurrent           = BRIGHTNESS_DEFAULT;
+uint8_t                         brightnessTarget            = BRIGHTNESS_DEFAULT;
+bool                            tslPresent                  = false;
 
 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> *ledStrip = NULL;
 
@@ -90,28 +89,34 @@ void displayFlightConditions( void )
     const String& flightCategory = pair.second.flightCategory;
     RgbColor flightCategoryColor = black;
 
-#ifdef SECTIONAL_DEBUG
-    Serial.print( pair.second.pixel );
-    Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
-    Serial.println( pair.second.lightning ? "TS" : "" );
-#endif
-
-    const auto& categoryColor = flightCategoryColors.find( flightCategory );
-
-    if( categoryColor != flightCategoryColors.end() )
+    if( pair.second.valid )
     {
-      if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
+#ifdef SECTIONAL_DEBUG
+      Serial.print( pair.second.pixel );
+      Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
+      Serial.println( pair.second.lightning ? "TS" : "" );
+#endif
+      const auto& categoryColor = flightCategoryColors.find( flightCategory );
+
+      if( categoryColor != flightCategoryColors.end() )
       {
-        flightCategoryColor = yellow;
+        if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
+        {
+          flightCategoryColor = yellow;
+        }
+        else
+        {
+          flightCategoryColor = categoryColor->second;
+        }
       }
       else
       {
-        flightCategoryColor = categoryColor->second;
+        Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
       }
     }
     else
     {
-      Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
+      Serial.println( "No valid METAR for " + pair.first );
     }
 
     ledStrip->SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
@@ -163,7 +168,7 @@ unsigned getAirports( String url )
   ChunkDecodingStream decodedStream( rawStream );
 
   Stream& response = httpClient.header("Transfer-Encoding") == "chunked" ? decodedStream : rawStream;
-  response.setTimeout( METAR_READ_TIMEOUT_S * 1000 );
+  response.setTimeout( METAR_STREAM_READ_TIMEOUT_S * 1000 );
 
   JsonDocument filter;
   
@@ -223,6 +228,7 @@ unsigned getAirports( String url )
       airportIt->second.lightning = (rawOb.indexOf("TS") != -1);
       airportIt->second.windSpeed = windSpeed;
       airportIt->second.windGust = windGust;
+      airportIt->second.valid = true;
     }
 
     yield();
@@ -236,74 +242,72 @@ unsigned getAirports( String url )
   return foundAirports;
 }
 
-bool getAllMetars( void )
+void getAllMetars( void )
 {
-  // Allow an error to continue. Sometimes airports don't return a METAR
-  // but don't let that stop all others from reporting.
-
-  bool retVal = true;
-
-  unsigned numAirports = 0;
-
   String url;
   url.reserve( 128 );
   url = "";
 
-  auto fetchAirportsWithRetry = [&]( String& requestUrl, unsigned requestCount ) -> bool
-  {
-    for( unsigned attempt = 0; attempt < 3; ++attempt )
-    {
-      if( requestCount == getAirports(requestUrl) )
-      {
-        return true;
-      }
-      else
-      {
-        Serial.println( "Retrying METAR request..." );
-        delay( METAR_RETRY_INTERVAL_S * 1000 );
-      }
-    }
-
-    return false;
-  };
-
+  // Clear out all airport METAR data and mark as invalid
   for( auto it = airports.begin(); (it != airports.end()); ++it )
   {
-    // Reset flight category
+    it->second.valid = false;
     it->second.flightCategory = "";
     it->second.lightning = false;
     it->second.windSpeed = 0;
     it->second.windGust = 0;
+  }
 
-    if( numAirports == 0 )
+  bool allValid = false;
+  unsigned long loopStart = millis();
+
+  do
+  {
+    unsigned numAirports = 0;
+    allValid = false;
+
+    // Pull the first MAX_AIRPORTS_PER_REQUEST airports that are not valid and build a request URL for them
+    for( auto it = airports.begin(); (it != airports.end()) && (numAirports < MAX_AIRPORTS_PER_REQUEST); ++it )
     {
-      url.clear();
-      url.concat( "https://" );
-      url.concat( AW_SERVER );
-      url.concat( "/" );
-      url.concat( BASE_URI );
-      url.concat( it->first );
-      numAirports = 1;
-    }
-    else
-    {
-      url += "," + it->first;
+      if( it->second.valid )
+      {
+        continue;
+      }
+
+      if( numAirports == 0 )
+      {
+        url.clear();
+        url.concat( "https://" );
+        url.concat( AW_SERVER );
+        url.concat( "/" );
+        url.concat( BASE_URI );
+      }
+
+      if( numAirports > 0 )
+      {
+        url.concat( "," );
+      }
+
+      url += it->first;
       numAirports++;
     }
 
-    if( numAirports >= MAX_AIRPORTS_PER_REQUEST )
+    allValid = (numAirports == 0);
+
+    if( !allValid )
     {
-      retVal = retVal && fetchAirportsWithRetry( url, numAirports );
-      numAirports = 0;
+      unsigned numFetched = getAirports( url );
+
+      // Rest just a bit between requests, relative to the size of error, to avoid any potential throttling or rate limiting from the server.
+      delay( 1000 * (numAirports - numFetched + 1) );
     }
   }
+  while( !allValid && ((millis() - loopStart) < (METAR_FETCH_TIMEOUT_S * 1000)) );
 
-  if( numAirports > 0 )
+  if( !allValid )
   {
-    retVal = retVal && fetchAirportsWithRetry( url, numAirports );
+    Serial.println( "Warning: Not all airports were valid after " + String(METAR_FETCH_TIMEOUT_S) + " seconds of retries." );
   }
-
-  return retVal;
 }
 
 void loop()
@@ -542,13 +546,11 @@ void loop()
     static unsigned long  metarLast         = 0;
     static eMetarState    metarState        = METAR_STATE_INIT;
     static unsigned long  metarInterval     = METAR_REQUEST_INTERVAL_S * 1000;
-    static unsigned       metarRetryCount;
 
     switch( metarState )
     {
       case METAR_STATE_INIT:
         metarState = METAR_STATE_FETCHING;
-        metarRetryCount = 0;
         break;
 
       case METAR_STATE_REST:
@@ -563,30 +565,8 @@ void loop()
 #ifdef SECTIONAL_DEBUG
         Serial.printf( "free=%u, max=%u, frag=%u%%\n", ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation() );
 #endif
-        metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-
-        if( getAllMetars() )
-        {
-          metarRetryCount = 0;
-        }
-        else
-        {
-          if( ++metarRetryCount >= METAR_MAX_RETRIES )
-          {
-            Serial.println( "Unable" );
-            metarRetryCount = 0;
-          }
-          else
-          {
-            metarInterval = METAR_RETRY_INTERVAL_S * 1000;
-          }
-        }
-
-        // Display what we have, regardless. Sometimes stations just don't have METARs returned.
-        if( metarRetryCount == 0 )
-        {
-          displayFlightConditions();
-        }
+        getAllMetars();
+        displayFlightConditions();
 
         Serial.print( "METAR request again in " );
         Serial.print( metarInterval );

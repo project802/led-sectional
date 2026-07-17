@@ -64,6 +64,7 @@ const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
 
 struct AirportConditions
 {
+  bool     valid;
   unsigned pixel;
   String   flightCategory;
   bool     lightning;
