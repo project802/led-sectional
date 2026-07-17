@@ -84,18 +84,20 @@ void displayFlightConditions( void )
 
     if( pair.second.valid && (categoryColor != flightCategoryColors.end()) )
     {
-      if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
+      unsigned winds = max( pair.second.windSpeed, pair.second.windGust );
+
+      // default to flight category color
+      pixelColor = categoryColor->second;
+
+      // override to yellow if VFR and wind/gusts exceed threshold
+      if( (flightCategory == "VFR") && (winds > WIND_THRESHOLD) )
       {
         pixelColor = yellow;
-      }
-      else
-      {
-        pixelColor = categoryColor->second;
       }
     }
     else
     {
-      Serial.println( "displayFlightConditions: " + pair.first + " invalid or no flight category (\"" + flightCategory + "\")" );
+      Serial.println( "displayFlightConditions: " + pair.first + (pair.second.valid ? " no such flight category \"" + flightCategory + "\"" : " is invalid" ) );
     }
 
     ledStrip->SetPixelColor( pair.second.pixel, pixelColor.Dim(brightnessCurrent) );
