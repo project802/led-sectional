@@ -86,40 +86,33 @@ void displayFlightConditions( void )
 {
   for( const auto& pair : airports )
   {
-    RgbColor flightCategoryColor = black;
-
-    if( pair.second.valid )
-    {
 #ifdef SECTIONAL_DEBUG
-      Serial.print( pair.second.pixel );
-      Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
-      Serial.println( pair.second.lightning ? "TS" : "" );
+    Serial.print( pair.second.pixel );
+    Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
+    Serial.println( pair.second.lightning ? "TS" : "" );
 #endif
-      const String& flightCategory = pair.second.flightCategory;
-      const auto& categoryColor = flightCategoryColors.find( flightCategory );
 
-      if( categoryColor != flightCategoryColors.end() )
+    RgbColor pixelColor = black;
+    const String& flightCategory = pair.second.flightCategory;
+    const auto& categoryColor = flightCategoryColors.find( flightCategory );
+
+    if( pair.second.valid && (categoryColor != flightCategoryColors.end()) )
+    {
+      if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
       {
-        if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
-        {
-          flightCategoryColor = yellow;
-        }
-        else
-        {
-          flightCategoryColor = categoryColor->second;
-        }
+        pixelColor = yellow;
       }
       else
       {
-        Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
+        pixelColor = categoryColor->second;
       }
     }
     else
     {
-      Serial.println( "No valid METAR for " + pair.first );
+      Serial.println( "displayFlightConditions: " + pair.first + " invalid or no flight category (\"" + flightCategory + "\")" );
     }
 
-    ledStrip->SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
+    ledStrip->SetPixelColor( pair.second.pixel, pixelColor.Dim(brightnessCurrent) );
   }
 
   ledStrip->Show();
