@@ -44,7 +44,7 @@ void setup()
   // Fresh line
   Serial.println();
   Serial.println( "I am \"" + WiFi.hostname() + "\"" );
-  
+
   WiFi.mode( WIFI_OFF );
   while( WiFi.status() == WL_CONNECTED ) delay(0);
   WiFi.mode( WIFI_STA );
@@ -78,12 +78,6 @@ void displayFlightConditions( void )
 {
   for( const auto& pair : airports )
   {
-#ifdef SECTIONAL_DEBUG
-    Serial.print( pair.second.pixel );
-    Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
-    Serial.println( pair.second.lightning ? "TS" : "" );
-#endif
-
     RgbColor pixelColor = black;
     const String& flightCategory = pair.second.flightCategory;
     const auto& categoryColor = flightCategoryColors.find( flightCategory );
@@ -119,18 +113,7 @@ unsigned getAirports( String url )
 
   client.setInsecure();
 
-#ifdef SECTIONAL_DEBUG
-  Serial.println( "Fetching " + url );
-  Serial.print( "Starting connection to server..." );
-#endif
-
-  if( httpClient.begin(client, url) )
-  {
-#ifdef SECTIONAL_DEBUG
-    Serial.println( "OK" );
-#endif
-  }
-  else
+  if( !httpClient.begin(client, url) )
   {
     Serial.println( "Connection failed!" );
     return foundAirports;
@@ -174,10 +157,6 @@ unsigned getAirports( String url )
     return foundAirports;
   }
 
-#ifdef SECTIONAL_DEBUG
-  serializeJsonPretty( doc, Serial );
-#endif
-
   JsonArray features = doc["features"].as<JsonArray>();
 
   if( features.isNull() )
@@ -218,11 +197,6 @@ unsigned getAirports( String url )
 
     yield();
   }
-
-#ifdef SECTIONAL_DEBUG
-  Serial.println( "Found " + String(foundAirports) );
-  Serial.println();
-#endif
 
   return foundAirports;
 }
@@ -300,11 +274,7 @@ void loop()
   // Sleep routine
   do
   {
-#ifdef TIMEZONE
-    static WorldTimeAPI wtAPI = WorldTimeAPI( WorldTimeAPI::TIME_USING_TIMEZONE, TIMEZONE );
-#else
     static WorldTimeAPI wtAPI = WorldTimeAPI();
-#endif
     static bool sleeping = false;
     
     // Only update the time if we aren't asleep and on Wi-Fi.
@@ -348,13 +318,6 @@ void loop()
     
     if( !sleeping && shouldBeAsleep )
     {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( wtAPI.getFormattedTime() );
-      Serial.print( " time for bed! dayNow:" );
-      Serial.print( dayNow );
-      Serial.print( " dayIsWeekend:" );
-      Serial.println( dayIsWeekend[dayNow] );
-#endif
       sleeping = true;
 
       // Turn off METAR LEDs
@@ -369,10 +332,6 @@ void loop()
     }
     else if( sleeping && !shouldBeAsleep )
     {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( wtAPI.getFormattedTime() );
-      Serial.println( " time to wake up!" );
-#endif
       sleeping = false;
 
       WiFi.forceSleepWake();
@@ -468,19 +427,7 @@ void loop()
           {
             brightnessTarget = 0;
           }
-          
-#ifdef SECTIONAL_DEBUG
-          Serial.print( "TSL2561: " );
-          Serial.print( event.light );
-          Serial.print( " between " );
-          Serial.print( luxMap[i-1][0] );
-          Serial.print( " and " );
-          Serial.print( luxMap[i][0] );
-          Serial.print( ", slope " );
-          Serial.print( slope );
-          Serial.print( ", result " );
-          Serial.println( result );
-#endif  
+
           break;
         }
       }
@@ -490,12 +437,6 @@ void loop()
 
     if( brightnessCurrent != brightnessTarget )
     {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( "TSL2561: current " );
-      Serial.print( brightnessCurrent );
-      Serial.print( " target " );
-      Serial.println( brightnessTarget );
-#endif
       // Step size is empirically determined to be a good balance between speed and smoothness of brightness change.
       int stepSize = 4;
 
@@ -547,9 +488,7 @@ void loop()
 
       case METAR_STATE_FETCHING:
         Serial.println( "Getting METARs" );
-#ifdef SECTIONAL_DEBUG
-        Serial.printf( "free=%u, max=%u, frag=%u%%\n", ESP.getFreeHeap(), ESP.getMaxFreeBlockSize(), ESP.getHeapFragmentation() );
-#endif
+
         getAllMetars();
         displayFlightConditions();
 
