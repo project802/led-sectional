@@ -106,9 +106,21 @@ void displayFlightConditions( void )
   ledStrip->Show();
 }
 
-unsigned getAirports( String url )
+unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 {
   unsigned foundAirports = 0;
+
+  String url;
+  url.reserve( 128 );
+  url = "https://" + String(AW_SERVER) + "/" + String(BASE_URI);
+
+  for( const auto& airport : airportRequestList )
+  {
+    url += airport + ",";
+  }
+
+  // Remove trailing comma
+  url.remove( url.length() - 1 );
 
   WiFiClientSecure client;
   HTTPClient httpClient;
@@ -200,6 +212,12 @@ unsigned getAirports( String url )
     yield();
   }
 
+  if( foundAirports == 0 )
+  {
+    Serial.println( "Warning: No airports were found in the METAR response." );
+    serializeJsonPretty( doc, Serial );
+  }
+
   return foundAirports;
 }
 
@@ -224,43 +242,29 @@ void getAllMetars( void )
 
   do
   {
-    unsigned numAirports = 0;
+    std::vector<String> airportList;
+
     allValid = false;
 
     // Pull the first MAX_AIRPORTS_PER_REQUEST airports that are not valid and build a request URL for them
-    for( auto it = airports.begin(); (it != airports.end()) && (numAirports < MAX_AIRPORTS_PER_REQUEST); ++it )
+    for( auto it = airports.begin(); (it != airports.end()) && (airportList.size() < MAX_AIRPORTS_PER_REQUEST); ++it )
     {
       if( it->second.valid )
       {
         continue;
       }
 
-      if( numAirports == 0 )
-      {
-        url.clear();
-        url.concat( "https://" );
-        url.concat( AW_SERVER );
-        url.concat( "/" );
-        url.concat( BASE_URI );
-      }
-
-      if( numAirports > 0 )
-      {
-        url.concat( "," );
-      }
-
-      url += it->first;
-      numAirports++;
+      airportList.push_back(it->first);
     }
 
-    allValid = (numAirports == 0);
+    allValid = (airportList.size() == 0);
 
     if( !allValid )
     {
-      unsigned numFetched = getAirports( url );
+      unsigned numFetched = callAndParseMetarApi( airportList );
 
       // Rest just a bit between requests, relative to the size of error, to avoid any potential throttling or rate limiting from the server.
-      delay( 1000 * (numAirports - numFetched + 1) );
+      delay( 1000 * (airportList.size() - numFetched + 1) );
     }
   }
   while( !allValid && ((millis() - loopStart) < (METAR_FETCH_TIMEOUT_S * 1000)) );
