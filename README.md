@@ -5,8 +5,9 @@
 ## 2026 Refactor
 * Convert to PlatformIO project
 * Remove all manual JSON interventions
-* Add additional METAR request retry mechanisms and improve HTTP header handling
+* Improve HTTP header handling
 * Additional error checking and cleanups
+* Redesign of fetch and retry logic
 
 ## 2025 Refactor
 * Use latest aviationweather.gov API
