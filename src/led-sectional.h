@@ -11,6 +11,12 @@
 #include <NeoPixelBus.h>
 #include <map>
 
+#define WIFI_SSID             "CHANGE-ME" // your network SSID (name)
+#define WIFI_PASS             "CHANGE-ME" // your network password
+
+#define AW_SERVER             "aviationweather.gov"
+#define BASE_URI              "api/data/metar?format=geojson&taf=false&ids="
+
 #define LIGHTNING_INTERVAL    5       // How often the lightning animation will run, in seconds.  0 to disable.
 
 #define WIND_THRESHOLD        25      // Wind/gust speed, above which, when VFR will change from green to yellow.  Set high to disable.
@@ -58,9 +64,6 @@ const unsigned luxMap[][2] = {        // Map of lux vs LED intensity.
   { 300,    32 },                     // First and last index are required but the values can be changed.
   { 65536,  128 }                     // REQUIRED index of 65536
 };
-
-#define WIFI_SSID "CHANGE-ME" // your network SSID (name)
-#define WIFI_PASS "CHANGE-ME" // your network password
 
 struct AirportConditions
 {
