@@ -86,7 +86,6 @@ void displayFlightConditions( void )
 {
   for( const auto& pair : airports )
   {
-    const String& flightCategory = pair.second.flightCategory;
     RgbColor flightCategoryColor = black;
 
     if( pair.second.valid )
@@ -96,6 +95,7 @@ void displayFlightConditions( void )
       Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
       Serial.println( pair.second.lightning ? "TS" : "" );
 #endif
+      const String& flightCategory = pair.second.flightCategory;
       const auto& categoryColor = flightCategoryColors.find( flightCategory );
 
       if( categoryColor != flightCategoryColors.end() )
