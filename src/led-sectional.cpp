@@ -21,6 +21,7 @@ const unsigned                  MAX_AIRPORTS_PER_REQUEST    = 8;
 const unsigned                  METAR_STREAM_READ_TIMEOUT_S = 5;
 const unsigned                  METAR_REQUEST_INTERVAL_S    = (15*60);
 const unsigned                  METAR_FETCH_TIMEOUT_S       = 60;
+const unsigned                  AIRPORT_MAX_API_ATTEMPTS    = 5;
 
 Adafruit_TSL2561_Unified        tsl                         = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
 uint8_t                         brightnessCurrent           = BRIGHTNESS_DEFAULT;
@@ -230,6 +231,7 @@ void getAllMetars( void )
   for( auto it = airports.begin(); (it != airports.end()); ++it )
   {
     it->second.valid = false;
+    it->second.attempts = 0;
     it->second.flightCategory = "";
     it->second.lightning = false;
     it->second.windSpeed = 0;
@@ -248,12 +250,13 @@ void getAllMetars( void )
     // Pull the first MAX_AIRPORTS_PER_REQUEST airports that are not valid and build a request URL for them
     for( auto it = airports.begin(); (it != airports.end()) && (airportList.size() < MAX_AIRPORTS_PER_REQUEST); ++it )
     {
-      if( it->second.valid )
+      if( it->second.valid || (it->second.attempts >= AIRPORT_MAX_API_ATTEMPTS) )
       {
         continue;
       }
 
       airportList.push_back(it->first);
+      ++it->second.attempts;
     }
 
     allValid = (airportList.size() == 0);
