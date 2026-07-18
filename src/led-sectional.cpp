@@ -268,8 +268,11 @@ void getAllMetars( void )
     {
       unsigned numFetched = callAndParseMetarApi( airportList );
 
-      // Rest just a bit between requests, relative to the size of error, to avoid any potential throttling or rate limiting from the server.
-      delay( 1000 * (airportList.size() - numFetched + 1) );
+      if( numFetched != airportList.size() )
+      {
+        // Delay because something didn't come back. Give the API time to rest.
+        delay( 3000 );
+      }
     }
   }
   while( !allValid && ((millis() - loopStart) < (METAR_FETCH_TIMEOUT_S * 1000)) );
