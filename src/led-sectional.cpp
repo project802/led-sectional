@@ -96,10 +96,6 @@ void displayFlightConditions( void )
         pixelColor = yellow;
       }
     }
-    else
-    {
-      Serial.println( "displayFlightConditions: " + pair.first + (pair.second.valid ? " no such flight category \"" + flightCategory + "\"" : " is invalid" ) );
-    }
 
     ledStrip->SetPixelColor( pair.second.pixel, pixelColor.Dim(brightnessCurrent) );
   }
@@ -201,9 +197,15 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
     const auto& airportIt = airports.find(airportId);
     if( airportIt != airports.end() )
     {
-      ++foundAirports;
-      
       String flightCategory = feature["properties"]["fltcat"];
+
+      if( flightCategoryColors.find( flightCategory ) == flightCategoryColors.end() )
+      {
+        Serial.print( F("API error: flight category is missing or invalid for ") );
+        Serial.println( airportId );
+        continue;
+      }
+
       String rawOb = feature["properties"]["rawOb"];
       unsigned windSpeed = feature["properties"]["wspd"];
       unsigned windGust = feature["properties"]["wgst"];
@@ -214,6 +216,8 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
       airportIt->second.windSpeed = windSpeed;
       airportIt->second.windGust = windGust;
       airportIt->second.valid = true;
+
+      ++foundAirports;
     }
 
     yield();
