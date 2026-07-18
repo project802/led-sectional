@@ -230,10 +230,6 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
 void getAllMetars( void )
 {
-  String url;
-  url.reserve( 128 );
-  url = "";
-
   // Clear out all airport METAR data and mark as invalid
   for( auto it = airports.begin(); (it != airports.end()); ++it )
   {
