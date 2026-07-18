@@ -23,6 +23,8 @@ Display flight conditions on a sectional chart using LEDs.  This project is base
 ### METARs
 Data is downloaded from the United States' National Weather Service using the Data API on aviationweather.gov (https://aviationweather.gov/data/api/) and displayed on a series of individually addressable LEDs (WS2812B).
 
+Fair warning: the API reliability really stinks compared to what it used to be. For years it was very reliable but the switch to the new API endpoint has brought about several classes of errors that require extensive client-side error concealment, and a general lack of data availability. Its pretty common to get stream timeouts, 502 (bad gateway) errors, missing airport data, missing flight categories, etc. There are multiple times per day that I don't see some airport pixels illuminated due to these problems.
+
 ### Dynamic LED brightness
 Using a TSL2561 light sensor from Adafruit, dynamically control the brightness of the LEDs based on the ambient light.  This improves legibility and conserves power across high and low-lux situations.  For example, turn the LEDs off when the room is dark and scale them up to full brightness when under direct sunlight.
 
