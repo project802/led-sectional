@@ -62,7 +62,7 @@ void setup()
 
   if( !tsl.begin() )
   {
-    Serial.println( "Unable to find TSL2561 lux sensor.  Check sensor address." ); 
+    Serial.println( F("Unable to find TSL2561 lux sensor.  Check sensor address.") );
     tslPresent = false;
   }
   else
@@ -113,7 +113,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
   if( airportRequestList.size() == 0 )
   {
-    Serial.println( "Error: callAndParseMetarApi called with empty airportRequestList" );
+    Serial.println( F("Error: callAndParseMetarApi called with empty airportRequestList") );
     return foundAirports;
   }
 
@@ -136,7 +136,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
   if( !httpClient.begin(client, url) )
   {
-    Serial.println( "Connection failed!" );
+    Serial.println( F("Connection failed!") );
     return foundAirports;
   }
 
@@ -148,7 +148,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
   if( responseCode != HTTP_CODE_OK )
   {
-    Serial.print( "Error fetching METARs. HTTP code: " );
+    Serial.print( F("Error fetching METARs. HTTP code: ") );
     Serial.println( responseCode );
     return foundAirports;
   }
@@ -173,7 +173,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
   if( error )
   {
-    Serial.print( "deserializeJson() failed while parsing feature: " );
+    Serial.print( F("deserializeJson() failed while parsing feature: ") );
     Serial.println( error.f_str() );
     return foundAirports;
   }
@@ -182,7 +182,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
   if( features.isNull() )
   {
-    Serial.println( "Error: features array missing or invalid" );
+    Serial.println( F("Error: features array missing or invalid") );
     return foundAirports;
   }
 
@@ -190,7 +190,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
   {
     if( !featureVariant.is<JsonObject>() )
     {
-      Serial.println( "Error: feature is not a JSON object" );
+      Serial.println( F("Error: feature is not a JSON object") );
       return foundAirports;
     }
 
@@ -221,7 +221,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
   if( foundAirports == 0 )
   {
-    Serial.print( "Warning: No airports were found in the METAR response for " );
+    Serial.print( F("Warning: No airports were found in the METAR response for ") );
 
     for( const auto& airport : airportRequestList )
     {
@@ -287,7 +287,9 @@ void getAllMetars( void )
 
   if( !allValid )
   {
-    Serial.println( "Warning: Not all airports were valid after " + String(METAR_FETCH_TIMEOUT_S) + " seconds of retries." );
+    Serial.print( F("Warning: Not all airports were valid after ") );
+    Serial.print( String(METAR_FETCH_TIMEOUT_S) );
+    Serial.println( F(" seconds of retries.") );
   }
 }
 
@@ -309,9 +311,9 @@ void loop()
     {
       if( wtAPI.update() )
       {
-        Serial.print( "Time is now " );
+        Serial.print( F("Time is now ") );
         Serial.print( wtAPI.getFormattedTime() );
-        Serial.print( ", day " );
+        Serial.print( F(", day ") );
         Serial.println( wtAPI.getDayOfYear() );
       }
     }
@@ -379,14 +381,14 @@ void loop()
 
       if( WiFi.SSID().length() == 0 )
       {
-        Serial.println( "No WiFi config found.  Starting." );
+        Serial.println( F("No WiFi config found.  Starting.") );
         WiFi.mode( WIFI_STA );
         WiFi.begin( WIFI_SSID, WIFI_PASS );
       }
       
-      Serial.print( "Connecting to SSID \"" );
+      Serial.print( F("Connecting to SSID \"" ) );
       Serial.print( WiFi.SSID() );
-      Serial.print( "\"..." );
+      Serial.print( F("\"...") );
 
       // Show Wi-Fi is not connected with Orange across the board
       ledStrip->ClearTo( orange );
@@ -401,13 +403,13 @@ void loop()
       
       if( WiFi.status() != WL_CONNECTED )
       {
-        Serial.println( "Failed. Will retry..." );
+        Serial.println( F("Failed. Will retry...") );
         WiFi.mode( WIFI_STA );
         WiFi.begin( WIFI_SSID, WIFI_PASS );
         return;
       }
       
-      Serial.println( "OK!" );
+      Serial.println( F("OK!") );
 
       // Show success with Purple across the board
       ledStrip->ClearTo( purple );
@@ -509,14 +511,14 @@ void loop()
         // Intentional fall-through
 
       case METAR_STATE_FETCHING:
-        Serial.println( "Getting METARs" );
+        Serial.println( F("Getting METARs") );
 
         getAllMetars();
         displayFlightConditions();
 
-        Serial.print( "METAR request again in " );
+        Serial.print( F("METAR request again in ") );
         Serial.print( metarInterval );
-        Serial.println( "ms." );
+        Serial.println( F("ms.") );
 
         metarLast = millis();
         metarState = METAR_STATE_REST;
