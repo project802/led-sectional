@@ -111,6 +111,12 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 {
   unsigned foundAirports = 0;
 
+  if( airportRequestList.size() == 0 )
+  {
+    Serial.println( "Error: callAndParseMetarApi called with empty airportRequestList" );
+    return foundAirports;
+  }
+
   String url;
   url.reserve( 128 );
   url = "https://" + String(AW_SERVER) + "/" + String(BASE_URI);
