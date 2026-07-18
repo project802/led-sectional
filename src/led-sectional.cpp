@@ -215,7 +215,6 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
   if( foundAirports == 0 )
   {
     Serial.println( "Warning: No airports were found in the METAR response." );
-    serializeJsonPretty( doc, Serial );
   }
 
   return foundAirports;
