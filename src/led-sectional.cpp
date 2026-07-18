@@ -6,6 +6,7 @@
 
 #include "led-sectional.h"
 
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
@@ -16,47 +17,39 @@
 #include <StreamUtils.h>
 #include "WorldTimeAPI.h"
 
-#ifndef AW_SERVER
-  #define AW_SERVER             "aviationweather.gov"
-#endif
+const unsigned                  MAX_AIRPORTS_PER_REQUEST    = 8;
+const unsigned                  METAR_STREAM_READ_TIMEOUT_S = 5;
+const unsigned                  METAR_REQUEST_INTERVAL_S    = (15*60);
+const unsigned                  METAR_FETCH_TIMEOUT_S       = 60;
+const unsigned                  AIRPORT_MAX_API_ATTEMPTS    = 5;
 
-#ifndef BASE_URI
-  #define BASE_URI              "api/data/metar?format=geojson&taf=false&ids="
-#endif
-
-const unsigned                  MAX_AIRPORTS_PER_REQUEST  = 8;
-const unsigned                  METAR_READ_TIMEOUT_S      = 5;
-const unsigned                  METAR_RETRY_INTERVAL_S    = 5;
-const unsigned                  METAR_REQUEST_INTERVAL_S  = (15*60);
-const unsigned                  METAR_MAX_RETRIES         = 2;
-
-Adafruit_TSL2561_Unified        tsl                       = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
-uint8_t                         brightnessCurrent         = BRIGHTNESS_DEFAULT;
-uint8_t                         brightnessTarget          = BRIGHTNESS_DEFAULT;
-bool                            tslPresent                = false;
+Adafruit_TSL2561_Unified        tsl                         = Adafruit_TSL2561_Unified( TSL2561_ADDRESS, 1 );
+uint8_t                         brightnessCurrent           = BRIGHTNESS_DEFAULT;
+uint8_t                         brightnessTarget            = BRIGHTNESS_DEFAULT;
+bool                            tslPresent                  = false;
 
 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> *ledStrip = NULL;
 
 void setup()
 {
   String mac = WiFi.macAddress();
-  int pos;
+
   // Strip MAC address of colons
-  while( (pos = mac.indexOf(':')) >= 0 ) mac.remove( pos, 1 );
+  mac.replace( ":", "" );
 
   WiFi.hostname( "LED-Sectional-" + mac );
 
   Serial.begin( 115200 );
-  delay( 5000 );
+  delay( 5000 ); // wait a bit here for things to settle in case we are using a serial port monitor
 
-   // Fresh line
+  // Fresh line
   Serial.println();
   Serial.println( "I am \"" + WiFi.hostname() + "\"" );
-  
+
   WiFi.mode( WIFI_OFF );
   while( WiFi.status() == WL_CONNECTED ) delay(0);
   WiFi.mode( WIFI_STA );
-  WiFi.begin( ssid, pass );  
+  WiFi.begin( WIFI_SSID, WIFI_PASS );
 
   // Init onboard LED to off
   pinMode( LED_BUILTIN, OUTPUT );
@@ -86,223 +79,209 @@ void displayFlightConditions( void )
 {
   for( const auto& pair : airports )
   {
-    String flightCategory = pair.second.flightCategory;
-    RgbColor flightCategoryColor = black;
+    RgbColor pixelColor = black;
+    const String& flightCategory = pair.second.flightCategory;
+    const auto& categoryColor = flightCategoryColors.find( flightCategory );
 
-#ifdef SECTIONAL_DEBUG
-    Serial.print( pair.second.pixel );
-    Serial.print( ":" + pair.first + " " + pair.second.flightCategory + " " + pair.second.windSpeed + "G" + pair.second.windGust + " " );
-    Serial.println( pair.second.lightning ? "TS" : "" );
-#endif
-
-    if( flightCategoryColors.find(flightCategory) != flightCategoryColors.end() )
+    if( pair.second.valid && (categoryColor != flightCategoryColors.end()) )
     {
-      if( (flightCategory == "VFR") && ((pair.second.windSpeed > WIND_THRESHOLD) || (pair.second.windGust > WIND_THRESHOLD)) )
+      unsigned winds = max( pair.second.windSpeed, pair.second.windGust );
+
+      // default to flight category color
+      pixelColor = categoryColor->second;
+
+      // override to yellow if VFR and wind/gusts exceed threshold
+      if( (flightCategory == "VFR") && (winds > WIND_THRESHOLD) )
       {
-        flightCategoryColor = yellow;
-      }
-      else
-      {
-        flightCategoryColor = flightCategoryColors[flightCategory];
+        pixelColor = yellow;
       }
     }
     else
     {
-      Serial.println( "Unable to find color for flight category " + flightCategory + " for " + pair.first );
+      Serial.println( "displayFlightConditions: " + pair.first + (pair.second.valid ? " no such flight category \"" + flightCategory + "\"" : " is invalid" ) );
     }
 
-    ledStrip->SetPixelColor( pair.second.pixel, flightCategoryColor.Dim(brightnessCurrent) );
+    ledStrip->SetPixelColor( pair.second.pixel, pixelColor.Dim(brightnessCurrent) );
   }
 
   ledStrip->Show();
 }
 
-bool getAirports( String url, unsigned numAirports )
+unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 {
   unsigned foundAirports = 0;
 
-  if( numAirports == 0 )
+  String url;
+  url.reserve( 128 );
+  url = "https://" + String(AW_SERVER) + "/" + String(BASE_URI);
+
+  for( const auto& airport : airportRequestList )
   {
-    Serial.println( "Error: no airports to fetch" );
-    return false;
+    url += airport + ",";
   }
+
+  // Remove trailing comma
+  url.remove( url.length() - 1 );
 
   WiFiClientSecure client;
   HTTPClient httpClient;
 
   client.setInsecure();
 
-#ifdef SECTIONAL_DEBUG
-  Serial.println( "Fetching " + url );
-  Serial.print( "Starting connection to server (" + String(numAirports) + " airports)..." );
-#endif
-
-  if( httpClient.begin(client, url) )
-  {
-#ifdef SECTIONAL_DEBUG
-    Serial.println( "OK" );
-#endif
-  }
-  else
+  if( !httpClient.begin(client, url) )
   {
     Serial.println( "Connection failed!" );
-    httpClient.end();
-    return false;
+    return foundAirports;
   }
+
+  // Ask http client to explicitly save the Transfer-Encoding header so we can check if it is chunked or not
+  const char* headerKeys[] = { "Transfer-Encoding" };
+  httpClient.collectHeaders( headerKeys, sizeof(headerKeys) / sizeof(headerKeys[0]) );
 
   int16_t responseCode = httpClient.GET();
 
   if( responseCode != HTTP_CODE_OK )
   {
-    Serial.println( "Error fetching METARs. HTTP code: " );
+    Serial.print( "Error fetching METARs. HTTP code: " );
     Serial.println( responseCode );
-    httpClient.end();
-    return false;
+    return foundAirports;
   }
 
   Stream &rawStream = httpClient.getStream();
   ChunkDecodingStream decodedStream( rawStream );
 
   Stream& response = httpClient.header("Transfer-Encoding") == "chunked" ? decodedStream : rawStream;
+  response.setTimeout( METAR_STREAM_READ_TIMEOUT_S * 1000 );
+
+  JsonDocument filter;
+  
+  // Filter out most of the data to not run out of heap
+  filter["features"][0]["properties"]["id"] = true;
+  filter["features"][0]["properties"]["fltcat"] = true;
+  filter["features"][0]["properties"]["rawOb"] = true;
+  filter["features"][0]["properties"]["wspd"] = true;
+  filter["features"][0]["properties"]["wgst"] = true;
 
   JsonDocument doc;
-  JsonDocument filter;
+  DeserializationError error = deserializeJson( doc, response, DeserializationOption::Filter(filter) );
 
-  // Filter out most of the data to not run out of heap
-  filter["properties"]["id"] = true;
-  filter["properties"]["fltcat"] = true;
-  filter["properties"]["rawOb"] = true;
-  filter["properties"]["wspd"] = true;
-  filter["properties"]["wgst"] = true;
+  if( error )
+  {
+    Serial.print( "deserializeJson() failed while parsing feature: " );
+    Serial.println( error.f_str() );
+    return foundAirports;
+  }
 
-  // Deserialize in chunks since the entire http response cannot be kept in one big buffer
-  do {
-    unsigned long now = millis();
-    
-    bool foundAirport;
-    String json;
+  JsonArray features = doc["features"].as<JsonArray>();
 
-    json = "{";
+  if( features.isNull() )
+  {
+    Serial.println( "Error: features array missing or invalid" );
+    return foundAirports;
+  }
 
-    if( !response.find( "\"type\":\"Feature\"," ) )
+  for( JsonVariant featureVariant : features )
+  {
+    if( !featureVariant.is<JsonObject>() )
     {
-      Serial.println( "Timeout or EOF for airport" );
-      break;
+      Serial.println( "Error: feature is not a JSON object" );
+      return foundAirports;
     }
 
-    foundAirport = false;
+    JsonObject feature = featureVariant.as<JsonObject>();
 
-    do
+    String airportId = feature["properties"]["id"];
+
+    const auto& airportIt = airports.find(airportId);
+    if( airportIt != airports.end() )
     {
-      json += response.readStringUntil( '}' ) + '}';
+      ++foundAirports;
+      
+      String flightCategory = feature["properties"]["fltcat"];
+      String rawOb = feature["properties"]["rawOb"];
+      unsigned windSpeed = feature["properties"]["wspd"];
+      unsigned windGust = feature["properties"]["wgst"];
 
-      if( json.endsWith("}}") )
-      {
-        foundAirport = true;
-        break;
-      }
+      // Load up the airport conditions into the map for later display processing
+      airportIt->second.flightCategory = flightCategory;
+      airportIt->second.lightning = (rawOb.indexOf("TS") != -1);
+      airportIt->second.windSpeed = windSpeed;
+      airportIt->second.windGust = windGust;
+      airportIt->second.valid = true;
     }
-    while( (millis() - now) < (METAR_READ_TIMEOUT_S * 1000) );
-
-    DeserializationError error = deserializeJson( doc, json, DeserializationOption::Filter(filter) );
-
-    if( error || !foundAirport )
-    {
-      Serial.print( "deserializeJson() failed or timeout: " );
-      Serial.println( error.f_str() );
-      Serial.println( json );
-      httpClient.end();
-      return false;
-    }
-
-    ++foundAirports;
-
-    String airport = doc["properties"]["id"];
-    String flightCategory = doc["properties"]["fltcat"];
-    String rawOb = doc["properties"]["rawOb"];
-    unsigned windSpeed = doc["properties"]["wspd"];
-    unsigned windGust = doc["properties"]["wgst"];
-
-    // Set the flight category and let the LED color mapping be done elsewhere
-    airports[airport].flightCategory = flightCategory;
-    airports[airport].lightning = (rawOb.indexOf("TS") != -1);
-    airports[airport].windSpeed = windSpeed;
-    airports[airport].windGust = windGust;
 
     yield();
-  } while( foundAirports < numAirports );
+  }
 
-  httpClient.end();
-
-#ifdef SECTIONAL_DEBUG
-  Serial.println( "Found " + String(foundAirports) );
-  Serial.println();
-#endif
-
-  return (foundAirports == numAirports );
-}
-
-bool getAllMetars( void )
-{
-  // Allow an error to continue. Sometimes airports don't return a METAR
-  // but don't let that stop all others from reporting.
-
-  bool retVal = true;
-
-  unsigned numAirports = 0;
-
-  String url = "";
-
-  auto fetchAirportsWithRetry = [&]( String requestUrl, unsigned requestCount ) -> bool
+  if( foundAirports == 0 )
   {
-    for( unsigned attempt = 0; attempt < 3; ++attempt )
+    Serial.print( "Warning: No airports were found in the METAR response for " );
+
+    for( const auto& airport : airportRequestList )
     {
-      if( getAirports( requestUrl, requestCount ) )
-      {
-        return true;
-      }
-      else
-      {
-        Serial.println( "Retrying METAR request in 10 seconds..." );
-        delay( 10000 );
-      }
+      Serial.print( airport + " " );
     }
 
-    return false;
-  };
+    Serial.println();
+  }
 
+  return foundAirports;
+}
+
+void getAllMetars( void )
+{
+  String url;
+  url.reserve( 128 );
+  url = "";
+
+  // Clear out all airport METAR data and mark as invalid
   for( auto it = airports.begin(); (it != airports.end()); ++it )
   {
-    // Reset flight category
+    it->second.valid = false;
+    it->second.attempts = 0;
     it->second.flightCategory = "";
     it->second.lightning = false;
     it->second.windSpeed = 0;
     it->second.windGust = 0;
-
-    if( numAirports == 0 )
-    {
-      url = String( "https://" ) + AW_SERVER + "/" + BASE_URI + it->first;
-      numAirports = 1;
-    }
-    else
-    {
-      url += "," + it->first;
-      numAirports++;
-    }
-
-    if( numAirports >= MAX_AIRPORTS_PER_REQUEST )
-    {
-      retVal &= fetchAirportsWithRetry( url, numAirports );
-      numAirports = 0;
-    }
   }
 
-  if( numAirports > 0 )
+  bool allValid = false;
+  unsigned long loopStart = millis();
+
+  do
   {
-    retVal &= fetchAirportsWithRetry( url, numAirports );
-  }
+    std::vector<String> airportList;
 
-  return retVal;
+    allValid = false;
+
+    // Pull the first MAX_AIRPORTS_PER_REQUEST airports that are not valid and build a request URL for them
+    for( auto it = airports.begin(); (it != airports.end()) && (airportList.size() < MAX_AIRPORTS_PER_REQUEST); ++it )
+    {
+      if( it->second.valid || (it->second.attempts >= AIRPORT_MAX_API_ATTEMPTS) )
+      {
+        continue;
+      }
+
+      airportList.push_back(it->first);
+      ++it->second.attempts;
+    }
+
+    allValid = (airportList.size() == 0);
+
+    if( !allValid )
+    {
+      unsigned numFetched = callAndParseMetarApi( airportList );
+
+      // Rest just a bit between requests, relative to the size of error, to avoid any potential throttling or rate limiting from the server.
+      delay( 1000 * (airportList.size() - numFetched + 1) );
+    }
+  }
+  while( !allValid && ((millis() - loopStart) < (METAR_FETCH_TIMEOUT_S * 1000)) );
+
+  if( !allValid )
+  {
+    Serial.println( "Warning: Not all airports were valid after " + String(METAR_FETCH_TIMEOUT_S) + " seconds of retries." );
+  }
 }
 
 void loop()
@@ -310,11 +289,7 @@ void loop()
   // Sleep routine
   do
   {
-#ifdef TIMEZONE
-    static WorldTimeAPI wtAPI = WorldTimeAPI( WorldTimeAPI::TIME_USING_TIMEZONE, TIMEZONE );
-#else
     static WorldTimeAPI wtAPI = WorldTimeAPI();
-#endif
     static bool sleeping = false;
     
     // Only update the time if we aren't asleep and on Wi-Fi.
@@ -358,13 +333,6 @@ void loop()
     
     if( !sleeping && shouldBeAsleep )
     {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( wtAPI.getFormattedTime() );
-      Serial.print( " time for bed! dayNow:" );
-      Serial.print( dayNow );
-      Serial.print( " dayIsWeekend:" );
-      Serial.println( dayIsWeekend[dayNow] );
-#endif
       sleeping = true;
 
       // Turn off METAR LEDs
@@ -379,10 +347,6 @@ void loop()
     }
     else if( sleeping && !shouldBeAsleep )
     {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( wtAPI.getFormattedTime() );
-      Serial.println( " time to wake up!" );
-#endif
       sleeping = false;
 
       WiFi.forceSleepWake();
@@ -410,7 +374,7 @@ void loop()
       {
         Serial.println( "No WiFi config found.  Starting." );
         WiFi.mode( WIFI_STA );
-        WiFi.begin( ssid, pass );
+        WiFi.begin( WIFI_SSID, WIFI_PASS );
       }
       
       Serial.print( "Connecting to SSID \"" );
@@ -432,7 +396,7 @@ void loop()
       {
         Serial.println( "Failed. Will retry..." );
         WiFi.mode( WIFI_STA );
-        WiFi.begin( ssid, pass );
+        WiFi.begin( WIFI_SSID, WIFI_PASS );
         return;
       }
       
@@ -453,7 +417,7 @@ void loop()
 
       tsl.getEvent( &event );
     
-      for( unsigned i = 0; luxMap[i] != NULL; i++ )
+      for( unsigned i = 0; luxMap[i] != nullptr; i++ )
       {
         if( event.light < luxMap[i][0] )
         {
@@ -478,19 +442,7 @@ void loop()
           {
             brightnessTarget = 0;
           }
-          
-#ifdef SECTIONAL_DEBUG
-          Serial.print( "TSL2561: " );
-          Serial.print( event.light );
-          Serial.print( " between " );
-          Serial.print( luxMap[i-1][0] );
-          Serial.print( " and " );
-          Serial.print( luxMap[i][0] );
-          Serial.print( ", slope " );
-          Serial.print( slope );
-          Serial.print( ", reuslt " );
-          Serial.println( result );
-#endif  
+
           break;
         }
       }
@@ -500,12 +452,7 @@ void loop()
 
     if( brightnessCurrent != brightnessTarget )
     {
-#ifdef SECTIONAL_DEBUG
-      Serial.print( "TSL2561: current " );
-      Serial.print( brightnessCurrent );
-      Serial.print( " target " );
-      Serial.println( brightnessTarget );
-#endif
+      // Step size is empirically determined to be a good balance between speed and smoothness of brightness change.
       int stepSize = 4;
 
       int nextStep = brightnessCurrent;
@@ -540,13 +487,11 @@ void loop()
     static unsigned long  metarLast         = 0;
     static eMetarState    metarState        = METAR_STATE_INIT;
     static unsigned long  metarInterval     = METAR_REQUEST_INTERVAL_S * 1000;
-    static unsigned       metarRetryCount;
 
     switch( metarState )
     {
       case METAR_STATE_INIT:
         metarState = METAR_STATE_FETCHING;
-        metarRetryCount = 0;
         break;
 
       case METAR_STATE_REST:
@@ -559,30 +504,8 @@ void loop()
       case METAR_STATE_FETCHING:
         Serial.println( "Getting METARs" );
 
-        metarInterval = METAR_REQUEST_INTERVAL_S * 1000;
-
-        if( getAllMetars() )
-        {
-          metarRetryCount = 0;
-        }
-        else
-        {
-          if( ++metarRetryCount >= METAR_MAX_RETRIES )
-          {
-            Serial.println( "Unable" );
-            metarRetryCount = 0;
-          }
-          else
-          {
-            metarInterval = METAR_RETRY_INTERVAL_S * 1000;
-          }
-        }
-
-        // Display what we have, regardless. Sometimes stations just don't have METARs returned.
-        if( metarRetryCount == 0 )
-        {
-          displayFlightConditions();
-        }
+        getAllMetars();
+        displayFlightConditions();
 
         Serial.print( "METAR request again in " );
         Serial.print( metarInterval );
@@ -613,7 +536,8 @@ void loop()
         if( pair.second.lightning )
         {
           // Override pixel color with white directly
-          ledStrip->SetPixelColor( pair.second.pixel, white.Dim(brightnessCurrent * 2) );
+          uint8_t ratio = min( UINT8_MAX, brightnessCurrent * 2 );
+          ledStrip->SetPixelColor( pair.second.pixel, white.Dim(ratio) );
           haveLightning = true;
         }
       }
@@ -627,6 +551,6 @@ void loop()
     }
   }
 
-  // All done.  Yeild to other processes.
+  // All done.  Yield to other processes.
   delay( 1000 );
 }
