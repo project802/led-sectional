@@ -247,6 +247,7 @@ void getAllMetars( void )
   do
   {
     std::vector<String> airportList;
+    airportList.reserve( MAX_AIRPORTS_PER_REQUEST );
 
     allValid = false;
 
