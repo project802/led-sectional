@@ -32,7 +32,7 @@ The World Time API is used to automatically set the time so the sectional can go
 ## Get Started
 * Install VSCode and the PlatformIO IDE extension
 * Import this project using the PlatformIO Home screen
-* Set your Wi-Fi credentials in the led_sectional.h file
+* Set your Wi-Fi credentials in `src/led-sectional.h` or `src/local_config.h`
 * Build and upload the project
 
 If you have a successful upload, you can get started with your customizations and hardware installation.
