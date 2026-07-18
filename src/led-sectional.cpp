@@ -15,7 +15,6 @@
 #include <ArduinoJson.h>
 #include <NeoPixelBus.h>
 #include <StreamUtils.h>
-#include "WorldTimeAPI.h"
 
 const unsigned                  MAX_AIRPORTS_PER_REQUEST    = 8;
 const unsigned                  METAR_STREAM_READ_TIMEOUT_S = 5;
@@ -27,6 +26,7 @@ Adafruit_TSL2561_Unified        tsl                         = Adafruit_TSL2561_U
 uint8_t                         brightnessCurrent           = BRIGHTNESS_DEFAULT;
 uint8_t                         brightnessTarget            = BRIGHTNESS_DEFAULT;
 bool                            tslPresent                  = false;
+bool                            refreshMetars               = false;
 
 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> *ledStrip = NULL;
 
@@ -299,53 +299,60 @@ void getAllMetars( void )
 
 void loop()
 {
+  // Update brightness target (used as input to sleep and airport pixel brightness)
+  do
+  {
+    static unsigned long tslLast = 0;
+    if( tslPresent && (millis() - tslLast > 5000) )
+    {
+      sensors_event_t event;
+
+      tsl.getEvent( &event );
+    
+      for( unsigned i = 0; i < sizeof(luxMap) / sizeof(luxMap[0]); i++ )
+      {
+        if( event.light < luxMap[i][0] )
+        {
+          float slope = (float)(luxMap[i][1] - luxMap[i-1][1]) / (float)(luxMap[i][0] - luxMap[i-1][0]);
+
+          float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
+
+          if( result <= UINT8_MAX )
+          {
+            brightnessTarget = (uint8_t) result;
+          }
+          else
+          {
+            brightnessTarget = UINT8_MAX;
+          }
+
+          // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
+          brightnessTarget = brightnessTarget & ~((uint8_t)1);
+
+          // Shortcut values less than 3 to 0.  It doesn't have even color representation any longer.
+          if( brightnessTarget < 3 )
+          {
+            brightnessTarget = 0;
+          }
+
+          break;
+        }
+      }
+      
+      tslLast = millis();
+    }
+  }
+  while( false );
+
   // Sleep routine
   do
   {
-    static WorldTimeAPI wtAPI = WorldTimeAPI();
     static bool sleeping = false;
-    
-    // Only update the time if we aren't asleep and on Wi-Fi.
-    // Sleeping disconnects Wi-Fi so we don't want the corner case where we are off Wi-Fi
-    // and a time update fails so timeReceived returns false and we never wake up due to 
-    // a lack of time!  Since sleeping isn't true until we have time, this is guaranteed
-    // to not have a startup conflict.  If the update period expires while we are asleep
-    // thats ok we will wake up according to the last time update then sync again first thing.
-    if( !sleeping && (WiFi.status() == WL_CONNECTED) )
-    {
-      if( wtAPI.update() )
-      {
-        Serial.print( F("Time is now ") );
-        Serial.print( wtAPI.getFormattedTime() );
-        Serial.print( F(", day ") );
-        Serial.println( wtAPI.getDayOfYear() );
-      }
-    }
-
-    // Without any valid time, we can't appropriately know when to sleep and wake up so abort.
-    if( !wtAPI.timeReceived() )
-    {
-      break;
-    }
-    
-    int hourNow = wtAPI.getHour();
-    int dayNow = wtAPI.getDayOfWeek();
-
-    bool dayIsHoliday = (std::find(holidays.begin(), holidays.end(), wtAPI.getDayOfYear()) != holidays.end());
-    
-    bool shouldBeAsleep = false;
-    
-    if( dayIsWeekend[dayNow] || dayIsHoliday )
-    {
-      shouldBeAsleep = (SLEEP_WE_START <= hourNow) || (hourNow < SLEEP_WE_END);
-    }
-    else
-    {
-      shouldBeAsleep = (SLEEP_WD_START <= hourNow) || (hourNow < SLEEP_WD_END);
-    }
+    bool shouldBeAsleep = (brightnessTarget == 0);
     
     if( !sleeping && shouldBeAsleep )
     {
+      Serial.println( F("Good night") );
       sleeping = true;
 
       // Turn off METAR LEDs
@@ -361,22 +368,26 @@ void loop()
     else if( sleeping && !shouldBeAsleep )
     {
       sleeping = false;
+      refreshMetars = true;
 
       WiFi.forceSleepWake();
       WiFi.enableSTA( true );
       WiFi.mode( WIFI_STA );
       WiFi.begin();
+
+      Serial.println( F("Good morning") );
     }
 
     if( sleeping )
     {
-      delay( 60 * 1000 );
+      delay( 10 * 1000 );
       return;
     }
   }
-  while( 0 );
+  while( false );
 
   // Wi-Fi routine
+  do
   {
     if( WiFi.status() != WL_CONNECTED )
     {
@@ -420,76 +431,10 @@ void loop()
       ledStrip->Show();
     }
   }
-
-  // TSL2561 sensor routine
-  {
-    static unsigned long tslLast = 0;
-    if( tslPresent && (millis() - tslLast > 5000) )
-    {
-      sensors_event_t event;
-
-      tsl.getEvent( &event );
-    
-      for( unsigned i = 0; luxMap[i] != nullptr; i++ )
-      {
-        if( event.light < luxMap[i][0] )
-        {
-          float slope = (float)(luxMap[i][1] - luxMap[i-1][1]) / (float)(luxMap[i][0] - luxMap[i-1][0]);
-
-          float result = luxMap[i-1][1] + ((event.light - luxMap[i-1][0]) * slope);
-
-          if( result <= UINT8_MAX )
-          {
-            brightnessTarget = (uint8_t) result;
-          }
-          else
-          {
-            brightnessTarget = UINT8_MAX;
-          }
-
-          // Even numbers only, please.  Makes ramping by 2 easy with less conditional math.
-          brightnessTarget = brightnessTarget & ~((uint8_t)1);
-
-          // Shortcut values less than 3 to 0.  It doesn't have even color representation any longer.
-          if( brightnessTarget < 3 )
-          {
-            brightnessTarget = 0;
-          }
-
-          break;
-        }
-      }
-      
-      tslLast = millis();
-    }
-
-    if( brightnessCurrent != brightnessTarget )
-    {
-      // Step size is empirically determined to be a good balance between speed and smoothness of brightness change.
-      int stepSize = 4;
-
-      int nextStep = brightnessCurrent;
-
-      if( brightnessCurrent < brightnessTarget )
-      {
-        nextStep += stepSize;
-
-        if( nextStep > brightnessTarget ) nextStep = brightnessTarget;
-      }
-      else
-      {
-        nextStep -= stepSize;
-
-        if( nextStep < brightnessTarget ) nextStep = brightnessTarget;
-      }
-
-      brightnessCurrent = (uint8_t) nextStep;
-      
-      displayFlightConditions();
-    }
-  }
+  while( false );
 
   // METAR routine
+  do
   {
     typedef enum {
       METAR_STATE_INIT,
@@ -500,6 +445,12 @@ void loop()
     static unsigned long  metarLast         = 0;
     static eMetarState    metarState        = METAR_STATE_INIT;
     static unsigned long  metarInterval     = METAR_REQUEST_INTERVAL_S * 1000;
+
+    if( refreshMetars )
+    {
+      metarState = METAR_STATE_FETCHING;
+      refreshMetars = false;
+    }
 
     switch( metarState )
     {
@@ -533,8 +484,40 @@ void loop()
         break;
     }
   }
+  while( false );
+
+  // Adjust brightness routine
+  do
+  {
+    if( brightnessCurrent != brightnessTarget )
+    {
+      // Step size is empirically determined to be a good balance between speed and smoothness of brightness change.
+      int stepSize = 4;
+
+      int nextStep = brightnessCurrent;
+
+      if( brightnessCurrent < brightnessTarget )
+      {
+        nextStep += stepSize;
+
+        if( nextStep > brightnessTarget ) nextStep = brightnessTarget;
+      }
+      else
+      {
+        nextStep -= stepSize;
+
+        if( nextStep < brightnessTarget ) nextStep = brightnessTarget;
+      }
+
+      brightnessCurrent = (uint8_t) nextStep;
+      
+      displayFlightConditions();
+    }
+  }
+  while( false );
 
   // Lightning routine
+  do
   {
     static unsigned long lightningLast = 0;
 
@@ -563,6 +546,7 @@ void loop()
       }
     }
   }
+  while( false );
 
   // All done.  Yield to other processes.
   delay( 1000 );

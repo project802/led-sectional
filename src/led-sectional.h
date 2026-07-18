@@ -21,37 +21,6 @@
 
 #define WIND_THRESHOLD        25      // Wind/gust speed, above which, when VFR will change from green to yellow.  Set high to disable.
 
-//#define TIMEZONE            "America/Los_Angeles"  // Specify a time zone if the automatic method doesn't work.  For a list of valid timezones, see http://worldtimeapi.org/timezones
-#define SLEEP_WD_START        21      // The hour (local) at which the sectional will sleep on weekdays
-#define SLEEP_WD_END          7       // The hour (local) at which the sectional will wake up on weekdays
-
-#define SLEEP_WE_START        22      // The hour (local) at which the sectional will sleep on weekends or holidays
-#define SLEEP_WE_END          8       // The hour (local) at which the sectional will wake up on weekends or holidays
-
-const bool dayIsWeekend[] = {         // Specify which days of the week should use "weekend" hours (true) or "weekday" hours (false)
-  true,   // Sunday
-  false,  // Monday
-  false,  // Tuesday
-  false,  // Wednesday
-  false,  // Thursday
-  false,  // Friday
-  true    // Saturday
-};
-
-// List of US 2025 federal holidays as day of the year
-std::vector<unsigned> holidays({
-  1,    // NY
-  20,   // MLK Jr Birthday
-  48,   // Washington's Birthday
-  146,  // Memorial Day
-  185,  // Independence Day
-  244,  // Labor Day
-  286,  // Columbus Day
-  315,  // Verterans Day
-  331,  // Thanksgiving Day
-  359   // Christmas Day
-});
-
 #define TSL2561_ADDRESS       TSL2561_ADDR_FLOAT
 #define BRIGHTNESS_DEFAULT    32      // Default brightness which optionally gets changed if DO_TSL2561 is enabled
 
