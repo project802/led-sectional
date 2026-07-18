@@ -225,7 +225,8 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
 
     for( const auto& airport : airportRequestList )
     {
-      Serial.print( airport + " " );
+      Serial.print( airport );
+      Serial.print( " " );
     }
 
     Serial.println();
