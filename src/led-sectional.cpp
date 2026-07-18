@@ -150,7 +150,7 @@ unsigned callAndParseMetarApi( const std::vector<String>& airportRequestList )
   Stream &rawStream = httpClient.getStream();
   ChunkDecodingStream decodedStream( rawStream );
 
-  Stream& response = httpClient.header("Transfer-Encoding") == "chunked" ? decodedStream : rawStream;
+  Stream& response = httpClient.header("Transfer-Encoding").equalsIgnoreCase( "chunked" ) ? decodedStream : rawStream;
   response.setTimeout( METAR_STREAM_READ_TIMEOUT_S * 1000 );
 
   JsonDocument filter;
