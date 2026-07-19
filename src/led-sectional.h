@@ -45,29 +45,31 @@ struct AirportConditions
   unsigned windGust;
 };
 
+#define AIRPORT_DECL(iaco, pixelNo) { iaco, { .valid = false, .attempts = 0, .pixel = pixelNo, .flightCategory = "", .lightning = false, .windSpeed = 0, .windGust = 0 } }
+
 std::map<String, AirportConditions> airports = {
-  { "KJFK", { .pixel = 0 } },
-  { "KHPN", { .pixel = 1 } },
-  { "KPOU", { .pixel = 2 } },
-  { "KALB", { .pixel = 3 } },
-  { "KPSF", { .pixel = 4 } },
-  { "KOXC", { .pixel = 5 } },
-  { "KISP", { .pixel = 6 } },
-  { "KJPX", { .pixel = 7 } },
-  { "KSNC", { .pixel = 8 } },
-  { "KBAF", { .pixel = 9 } },
-  { "KEEN", { .pixel = 10 } },
-  { "KORH", { .pixel = 11 } },
-  { "KIJD", { .pixel = 12 } },
-  { "KBID", { .pixel = 13 } },
-  { "KPVD", { .pixel = 14 } },
-  { "KBOS", { .pixel = 15 } },
-  { "KMHT", { .pixel = 16 } },
-  { "KPVC", { .pixel = 17 } },
-  { "KCQX", { .pixel = 18 } },
-  { "KACK", { .pixel = 19 } },
-  { "KMVY", { .pixel = 20 } },
-  { "KFMH", { .pixel = 21 } },
+  AIRPORT_DECL( "KJFK", 0 ),
+  AIRPORT_DECL( "KHPN", 1 ),
+  AIRPORT_DECL( "KPOU", 2 ),
+  AIRPORT_DECL( "KALB", 3 ),
+  AIRPORT_DECL( "KPSF", 4 ),
+  AIRPORT_DECL( "KOXC", 5 ),
+  AIRPORT_DECL( "KISP", 6 ),
+  AIRPORT_DECL( "KJPX", 7 ),
+  AIRPORT_DECL( "KSNC", 8 ),
+  AIRPORT_DECL( "KBAF", 9 ),
+  AIRPORT_DECL( "KEEN", 10 ),
+  AIRPORT_DECL( "KORH", 11 ),
+  AIRPORT_DECL( "KIJD", 12 ),
+  AIRPORT_DECL( "KBID", 13 ),
+  AIRPORT_DECL( "KPVD", 14 ),
+  AIRPORT_DECL( "KBOS", 15 ),
+  AIRPORT_DECL( "KMHT", 16 ),
+  AIRPORT_DECL( "KPVC", 17 ),
+  AIRPORT_DECL( "KCQX", 18 ),
+  AIRPORT_DECL( "KACK", 19 ),
+  AIRPORT_DECL( "KMVY", 20 ),
+  AIRPORT_DECL( "KFMH", 21 )
 };
 
 RgbColor orange ( 255, 128,   0 );
