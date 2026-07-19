@@ -8,6 +8,7 @@
 * Improve HTTP header handling
 * Additional error checking and cleanups
 * Redesign of fetch and retry logic
+* Remove WorldTimeAPI (RIP) and use brightness to toggle sleep
 
 ## 2025 Refactor
 * Use latest aviationweather.gov API
@@ -28,8 +29,8 @@ Fair warning: the API reliability really stinks compared to what it used to be. 
 ### Dynamic LED brightness
 Using a TSL2561 light sensor from Adafruit, dynamically control the brightness of the LEDs based on the ambient light.  This improves legibility and conserves power across high and low-lux situations.  For example, turn the LEDs off when the room is dark and scale them up to full brightness when under direct sunlight.
 
-### Go To Sleep, Weekend and Holiday Behavior
-The World Time API is used to automatically set the time so the sectional can go to sleep and wake up at pre-programmed times for either weekdays or weekends.  When sleeping, the LEDs are turned off and METAR queries pause.  This is to be good citizens to the Data API and conserve power.  US federal holidays are treated as weekends.
+### Go To Sleep Behavior
+The chart will go to sleep and stop fetching METARs when the room goes dark and then resumes when light is restored.
 
 ## Get Started
 * Install VSCode and the PlatformIO IDE extension
@@ -52,11 +53,7 @@ If you have a successful upload, you can get started with your customizations an
   * SCL to D1
 
 ## Wishlist
-Maybe stop using World Time API and utilize the response from aviationweather.gov that has the unix timestamp?
-
 I'd like to not use insecure SSL, but the certificate for aviationweather.gov rotates multiple times a year and that will be annoying to keep up with.
-
-An API that tells if the day is a holiday would be nice. Maybe I'll host one if I can find a way to get the dates automatically.
 
 Use WiFiManager to set the Wi-Fi credentials and do connection management instead of manually managing the state.
 
